@@ -3,11 +3,11 @@ Project assignment for a Systems Software class (COP 3402) at the University of 
 
 ## Usage
 Input files **must** follow the following format:
-*Each line must consist of 3 non-negative whole numbers
-*The 3 numbers correspond to the operation code, lexicographical level, and a tertiary data field dependent on the operation (see "Details")
+* Each line must consist of 3 non-negative whole numbers
+* The 3 numbers correspond to the operation code, lexicographical level, and a tertiary data field dependent on the operation (see "Details")
 
 1. Compile the program file using the syntax "gcc vm.c"
-  - Additionally, use "gcc vm.c -o <Custom Name>.out" to specify a name for the execuatble file
+- Additionally, use "gcc vm.c -o <Custom Name>.out" to specify a name for the execuatble file
 2. To run the program, use the syntax "./<Executable Name>.out <Input File Name>.txt"
   
 ## Details
@@ -15,20 +15,20 @@ The P-Machine is a virtual machine that manipulates stacks through 2 memory stor
 
 1. **LIT, 0, M**: *Push constant* M *onto the stack*
 2. **OPR, 0, M**: *Performs one of the operations below on the data at the top of the stack based on the value on* M
-  - **M = 0**: *Return*
-  - **M = 1**: *Negation*
-  - **M = 2**: *Addition of the top 2 values in the stack*
-  - **M = 3**: *Subtraction of the secondmost top value from the top value in the stack*
-  - **M = 4**: *Multiplication of the top 2 values in the stack*
-  - **M = 5**: *Division of the top value by the secondmost top value in the stack*
-  - **M = 6**: *ODD???*
-  - **M = 7**: *Modulus of the top value by the secondmost top value in the stack*
-  - **M = 8**: *Comparison of whether the top 2 values in the stack are equal*
-  - **M = 9**: *Comparison of whether the top 2 values in the stack are inequal*
-  - **M = 10**: *Comparison of whether the top value in the stack is less than the secondmost top value*
-  - **M = 11**: *Comparison of whether the top value in the stack is less than or equal to the secondmost top value*
-  - **M = 12**: *Comparison of whether the top value in the stack is greater than the secondmost top value*
-  - **M = 13**: *Comparison of whether the top value in the stack is greater than or equal to the secondmost top value*
+- **M = 0**: *Return*
+- **M = 1**: *Negation*
+- **M = 2**: *Addition of the top 2 values in the stack*
+- **M = 3**: *Subtraction of the secondmost top value from the top value in the stack*
+- **M = 4**: *Multiplication of the top 2 values in the stack*
+- **M = 5**: *Division of the top value by the secondmost top value in the stack*
+- **M = 6**: *ODD???*
+- **M = 7**: *Modulus of the top value by the secondmost top value in the stack*
+- **M = 8**: *Comparison of whether the top 2 values in the stack are equal*
+- **M = 9**: *Comparison of whether the top 2 values in the stack are inequal*
+- **M = 10**: *Comparison of whether the top value in the stack is less than the secondmost top value*
+- **M = 11**: *Comparison of whether the top value in the stack is less than or equal to the secondmost top value*
+- **M = 12**: *Comparison of whether the top value in the stack is greater than the secondmost top value*
+- **M = 13**: *Comparison of whether the top value in the stack is greater than or equal to the secondmost top value*
 3. **LOD, L, M**: *Load value to top of stack in the stack location at offset* M *from* L *lexicographical levels down*
 4. **STO, L, M**: *Store value at top of stack in the stack location at offset* M *from* L *lexicographical levels down*
 5. **CAL, L, M**: *Call procedure at code index* M *(Generates a new Activation Record and sets the program counter to* M

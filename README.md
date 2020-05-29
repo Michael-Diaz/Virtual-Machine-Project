@@ -2,14 +2,14 @@
 Project assignment for a Systems Software class (COP 3402) at the University of Central Florida; collaboration done w/ @Allen 17202
 
 ## Usage
-Input files **must** follow the following format:
-  * Each line must consist of 3 non-negative whole numbers
-  * The 3 numbers correspond to the operation code, lexicographical level, and a tertiary data field dependent on the operation (see "Details")
-
 1. Compile the program file using the syntax "gcc vm.c"
     - Additionally, use "gcc vm.c -o <Custom Name>.out" to specify a name for the execuatble file
 2. To run the program, use the syntax "./<Executable Name>.out <Input File Name>.txt"
-  
+
+Input files ***must*** follow the following format for the program to properly run:
+  * Each line must consist of 3 non-negative whole numbers
+  * The 3 numbers correspond to the operation code, lexicographical level, and a tertiary data field dependent on the operation (see "Details")
+
 ## Details
 The P-Machine is a virtual machine that manipulates stacks through 2 memory stores (the "Stack" and "Text" segments) and 4 registers (Base Pointer, Stack Pointer, Program Counter, and Instruction Register). It does this through the 11 instructions- along with 13 arithmetic/logic and 1 returning sub-operation- as follows:
 

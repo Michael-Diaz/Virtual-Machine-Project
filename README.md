@@ -1,5 +1,5 @@
 # Virtual Machine (PM/0) Project
-Project assignment for a Systems Software class (COP 3402) at the University of Central Florida; collaboration done w/ @Allen 17202
+Project assignment for a Systems Software class (COP 3402) at the University of Central Florida; collaboration done w/ @Allen17202
 
 ## Usage
 1. Compile the program file using the syntax "gcc vm.c"

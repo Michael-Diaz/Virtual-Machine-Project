@@ -15,12 +15,18 @@ typedef struct Instruction
 
 void main(int argc, char **argv)
 {
+  // Necessary Constants described by assignment
+  const int MAX_DATA_STACK_HEIGHT = 1000;
+  const int MAX_CODE_LENGTH = 500;
+  
   // Create an array to manipulate/access the instructions for the PM/0 and set its size to 0
   Instruction *input = malloc(sizeof(Instruction));
   int inputSize = 0;
 
   //~~int *code, *stack;~~
-  int programCounter = 0, basePointer = 1, stackPointer = 0;
+  // Initialize the Registers
+  int *programCounter = 0, *stackPointer = MAX_DATA_STACK_HEIGHT, *basePointer = stackPointer - 1;
+  Instruction *instructionRegister = NULL;
 
   // Set up the input file variable, along with buffer and allocation for the current word being scanned
   FILE *ifp;
@@ -76,4 +82,17 @@ void main(int argc, char **argv)
       */
 
   free(input);
+}
+
+Instruction *fetch(Instruction *input, Instruction *ir, int *pc)
+{
+  *ir = input[*pc];
+  return ir;
+}
+
+void execute(Instruction *ir, int *pc, int *sp, int *bp)
+{
+  //~~use a switch statement to do all the different operations using ir.compnenets[0]~~
+  //~~manipulate the stack as needed, then update the registers (parameters)~~
+  //~~print the stack and all the other records- I'm not really sure whether to do this before or after the execution???~~
 }

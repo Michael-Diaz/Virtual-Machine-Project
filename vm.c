@@ -10,23 +10,34 @@
 typedef struct Instruction
 {
   int components[3]; // OP, then L, then M
-  char *opName;
+  char opName[3];
 } Instruction;
+
+Instruction fetch(Instruction *input, int *pc);
+void execute(Instruction *ir, int *pc, int *sp, int *bp);
 
 void main(int argc, char **argv)
 {
   // Necessary Constants described by assignment
   const int MAX_DATA_STACK_HEIGHT = 1000;
   const int MAX_CODE_LENGTH = 500;
-  
+
   // Create an array to manipulate/access the instructions for the PM/0 and set its size to 0
   Instruction *input = malloc(sizeof(Instruction));
   int inputSize = 0;
 
+  printf("*\n");
+
   //~~int *code, *stack;~~
   // Initialize the Registers
-  int *programCounter = 0, *stackPointer = MAX_DATA_STACK_HEIGHT, *basePointer = stackPointer - 1;
-  Instruction *instructionRegister = NULL;
+  int pcPtr, spPtr, bpPtr, *programCounter = &pcPtr, *stackPointer = &spPtr, *basePointer = &bpPtr;
+  *programCounter = 0;
+  *stackPointer = MAX_DATA_STACK_HEIGHT;
+  *basePointer = *stackPointer - 1;
+  Instruction instructionRegister;
+  int haltFlag = 1;
+
+  printf("**\n");
 
   // Set up the input file variable, along with buffer and allocation for the current word being scanned
   FILE *ifp;
@@ -40,6 +51,8 @@ void main(int argc, char **argv)
   else
     exit(0);
 
+  printf("***\n");
+
   // Read the file, adding the components to an instruction set and adding it to the array in the order recieved
   while (fscanf(ifp, "%s", buffer) != EOF)
   {
@@ -49,9 +62,41 @@ void main(int argc, char **argv)
     // With every line, add an instruction slot to the array
     if (i % 3 == 0)
     {
-      
       inputSize++;
       input = realloc(input, sizeof(Instruction) * inputSize);
+
+      switch(atoi(word))
+      {
+        case 1:
+          strcpy(input[inputSize - 1].opName, "LIT");
+          break;
+        case 2:
+          strcpy(input[inputSize - 1].opName, "OPR");
+          break;
+        case 3:
+          strcpy(input[inputSize - 1].opName, "LOD");
+          break;
+        case 4:
+          strcpy(input[inputSize - 1].opName, "STO");
+          break;
+        case 5:
+          strcpy(input[inputSize - 1].opName, "CAL");
+          break;
+        case 6:
+          strcpy(input[inputSize - 1].opName, "INC");
+          break;
+        case 7:
+          strcpy(input[inputSize - 1].opName, "JMP");
+          break;
+        case 8:
+          strcpy(input[inputSize - 1].opName, "JPC");
+          break;
+        case 9:
+        case 10:
+        case 11:
+          strcpy(input[inputSize - 1].opName, "SIO");
+          break;
+      }
     }
 
     // Fill the instruction's "component" arrays with the appropriate data
@@ -62,32 +107,35 @@ void main(int argc, char **argv)
     free(word);
   }
 
+  printf("****\n");
+
   // Print the input file
   printf("Line  OP    L     M\n");
   for (j = 0; j < inputSize; j++)
   {
-    printf("%-6d", j);
-    for (k = 0; k < 3; k++)
+    printf("%-6d%s   ", j, input[j].opName);
+    for (k = 1; k < 3; k++)
     {
       printf("%-6d", input[j].components[k]);
     }
     printf("\n");
   }
 
-  //while input[programCounter].op != return
+  printf("*****\n");
 
-    //switch statement for the input[programCounter].op
-      /*
-      //go through all the possible operations, do whatever is needed
-      */
+  // Begin the fetch/execute cycles
+  while(haltFlag)
+  {
+    instructionRegister = fetch(input, programCounter);
+    *programCounter += 1;
+  }
 
   free(input);
 }
 
-Instruction *fetch(Instruction *input, Instruction *ir, int *pc)
+Instruction fetch(Instruction *input, int *pc)
 {
-  *ir = input[*pc];
-  return ir;
+  return input[*pc];
 }
 
 void execute(Instruction *ir, int *pc, int *sp, int *bp)

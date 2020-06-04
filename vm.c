@@ -14,7 +14,7 @@ typedef struct Instruction
 } Instruction;
 
 Instruction fetch(Instruction *input, int *pc);
-void execute(Instruction *ir, int *pc, int *sp, int *bp);
+void execute(Instruction ir, int *pc, int *sp, int *bp, int *flag);
 
 void main(int argc, char **argv)
 {
@@ -23,21 +23,18 @@ void main(int argc, char **argv)
   const int MAX_CODE_LENGTH = 500;
 
   // Create an array to manipulate/access the instructions for the PM/0 and set its size to 0
+  // Also create a 2d array to store muliple stacks on different lexicographical levels
   Instruction *input = malloc(sizeof(Instruction));
-  int inputSize = 0;
+  int **stack = malloc(sizeof(int *));
+  int inputSize = 0, stackHeight = 0;
 
-  printf("*\n");
-
-  //~~int *code, *stack;~~
   // Initialize the Registers
   int pcPtr, spPtr, bpPtr, *programCounter = &pcPtr, *stackPointer = &spPtr, *basePointer = &bpPtr;
   *programCounter = 0;
-  *stackPointer = MAX_DATA_STACK_HEIGHT;
-  *basePointer = *stackPointer - 1;
+  *stackPointer = 0;
+  *basePointer = *stackPointer + 1;
   Instruction instructionRegister;
   int haltFlag = 1;
-
-  printf("**\n");
 
   // Set up the input file variable, along with buffer and allocation for the current word being scanned
   FILE *ifp;
@@ -51,8 +48,6 @@ void main(int argc, char **argv)
   else
     exit(0);
 
-  printf("***\n");
-
   // Read the file, adding the components to an instruction set and adding it to the array in the order recieved
   while (fscanf(ifp, "%s", buffer) != EOF)
   {
@@ -65,6 +60,7 @@ void main(int argc, char **argv)
       inputSize++;
       input = realloc(input, sizeof(Instruction) * inputSize);
 
+      // Assign the opcode abbreviation to the instruction for printings
       switch(atoi(word))
       {
         case 1:
@@ -105,11 +101,15 @@ void main(int argc, char **argv)
 
     // Free the current scanned word to avoid a mem-leak
     free(word);
+
+    // Exit the scanning loop if there are more lines of code than the maximum allowed limit
+    if (i == MAX_CODE_LENGTH * 3)
+      break;
   }
+  // Close the file to prevent problems
+  fclose(ifp);
 
-  printf("****\n");
-
-  // Print the input file
+  // Print the input
   printf("Line  OP    L     M\n");
   for (j = 0; j < inputSize; j++)
   {
@@ -121,26 +121,131 @@ void main(int argc, char **argv)
     printf("\n");
   }
 
-  printf("*****\n");
-
-  // Begin the fetch/execute cycles
-  while(haltFlag)
+  // Prints the stack header
+  printf("\n                    PC    BP    SP    Stack\n");
+  printf("Intial Values       0     999   1000\n");
+  // Continues the program until it reaches the (SIO, 0, 3) command that sets the halt flag to 0 and stops the program
+  while(haltFlag == 1)
   {
+    // Fetch cycle
     instructionRegister = fetch(input, programCounter);
-    *programCounter += 1;
+    printf("%-4d%s %-4d%-8d", *programCounter, instructionRegister.opName, instructionRegister.components[1], instructionRegister.components[2]);
+
+    // Execute Cycle
+    execute(instructionRegister, programCounter, stackPointer, basePointer, &haltFlag);
+    printf("%-6d%-6d%-6d\n", *programCounter, MAX_DATA_STACK_HEIGHT - *basePointer, MAX_DATA_STACK_HEIGHT - *stackPointer);
   }
 
   free(input);
 }
 
+// Gets the instruction at the 'address' specified by the programCounter value
 Instruction fetch(Instruction *input, int *pc)
 {
   return input[*pc];
 }
 
-void execute(Instruction *ir, int *pc, int *sp, int *bp)
+// Uses the opcode and other parameters to manipulate the stack
+void execute(Instruction ir, int *pc, int *sp, int *bp, int *flag)
 {
-  //~~use a switch statement to do all the different operations using ir.compnenets[0]~~
-  //~~manipulate the stack as needed, then update the registers (parameters)~~
-  //~~print the stack and all the other records- I'm not really sure whether to do this before or after the execution???~~
+  switch(ir.components[0])
+  {
+    case 1: // LIT
+      *sp += 1;
+      //~append register.M onto the stack~
+      *pc += 1;
+      break;
+    case 2: // OPR
+      switch(ir.components[2])
+      {
+        case 0: // RET
+          *sp = *bp - 1;
+          *pc = 16; //~FIX THIS LINE, CONSTANT IS MEANT TO PREVENT INFINITE LOOP IN TESTCASE 1
+          //~bp = stack[sp - 3]
+          break;
+        case 1: // NEG
+          *pc += 1;
+          break;
+        case 2: // ADD
+          *pc += 1;
+          break;
+        case 3: // SUB
+          *pc += 1;
+          break;
+        case 4: // MUL
+          *pc += 1;
+          break;
+        case 5: // DIV
+          *pc += 1;
+          break;
+        case 6: // ODD
+          *pc += 1;
+          break;
+        case 7: // MOD
+          *pc += 1;
+          break;
+        case 8: // EQL
+          *pc += 1;
+          break;
+        case 9: // NEQ
+          *pc += 1;
+          break;
+        case 10: // LSS
+          *pc += 1;
+          break;
+        case 11: // LEQ
+          *pc += 1;
+          break;
+        case 12: // GTR
+          *pc += 1;
+          break;
+        case 13: // GEQ
+          *pc += 1;
+          break;
+      }
+      break;
+    case 3: // LOD
+      *sp += 1;
+      //~
+      *pc += 1;
+      break;
+    case 4: // STO
+      //~
+      *sp -= 1;
+      *pc += 1;
+      break;
+    case 5: // CAL
+      //~
+      //~
+      //~
+      //~
+      *bp = *sp + 1;
+      *pc = ir.components[2];
+      break;
+    case 6: // INC
+      *sp += ir.components[2];
+      *pc += 1;
+      break;
+    case 7: // JMP
+      *pc = ir.components[2];
+      break;
+    case 8: // JPC
+      //~
+      *sp -= 1;
+      break;
+    case 9: // SIO 1
+      //~
+      *sp -= 1;
+      *pc += 1;
+      break;
+    case 10: // SIO 2
+      *sp += 1;
+      //~
+      *pc += 1;
+      break;
+    case 11: // SIO 3
+      *flag = 0;
+      *pc += 1;
+      break;
+  }
 }

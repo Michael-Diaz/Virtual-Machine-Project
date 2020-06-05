@@ -21,7 +21,7 @@ The P-Machine is a virtual machine that manipulates stacks through 2 memory stor
     - **M = 3**: *Subtraction of the secondmost top value from the top value in the stack*
     - **M = 4**: *Multiplication of the top 2 values in the stack*
     - **M = 5**: *Division of the top value by the secondmost top value in the stack*
-    - **M = 6**: *Determines whether the op value of the stack is odd*
+    - **M = 6**: *Determines whether the top value of the stack is odd*
     - **M = 7**: *Modulus of the top value by the secondmost top value in the stack*
     - **M = 8**: *Comparison of whether the top 2 values in the stack are equal*
     - **M = 9**: *Comparison of whether the top 2 values in the stack are inequal*

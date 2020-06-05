@@ -5,10 +5,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
-// The stack is top down so I had to change some of the formatting and where the stack pointer and base pointer started at
-// All thats left is to figure out how to handle the print statement for that stack
-
+// Necessary Constants described by assignment
+static const int MAX_DATA_STACK_HEIGHT = 1000;
+static const int MAX_CODE_LENGTH = 500;
+static const int NON_VALUE = INT_MIN;
 
 
 // This struct contains the opcode, lexicographical level, and parameter field
@@ -18,26 +20,25 @@ typedef struct Instruction
   char opName[3];
 } Instruction;
 
+
 Instruction fetch(Instruction *input, int *pc);
-void execute(Instruction ir, int *pc, int *sp, int *bp, int *flag, int* stack);
-void printStack(int* stack);
+void execute(Instruction ir, int *pc, int *sp, int *bp, int *hFlag, int *stack, int *ar, int *arNum, int *aFlag);
+int base(int level, int base, int* stack);
+void printStack(int* stack, int *sp, int *ar);
 
 void main(int argc, char **argv)
 {
-  // Necessary Constants described by assignment
-  const int MAX_DATA_STACK_HEIGHT = 1000;
-  const int MAX_CODE_LENGTH = 500;
-
   // Create an array to manipulate/access the instructions for the PM/0 and set its size to 0
   // Also create a 2d array to store muliple stacks on different lexicographical levels
   Instruction *input = malloc(sizeof(Instruction));
   int *stack = malloc(sizeof(int) * MAX_DATA_STACK_HEIGHT);
-  int inputSize = 0, stackHeight = 0;
+  int *activationRecords = malloc(sizeof(int));
+  int inputSize = 0, aRecords = 0, aRFlag = 0;
 
   // Initialize the Registers
   int pcPtr, spPtr, bpPtr, *programCounter = &pcPtr, *stackPointer = &spPtr, *basePointer = &bpPtr;
   *programCounter = 0;
-  *stackPointer = 1000;
+  *stackPointer = MAX_DATA_STACK_HEIGHT;
   *basePointer = *stackPointer - 1;
   Instruction instructionRegister;
   int haltFlag = 1;
@@ -128,7 +129,7 @@ void main(int argc, char **argv)
   }
 
   // Prints the stack header
-  printf("\n                    PC    BP    SP    Stack\n");
+  printf("\n                    PC    BP    SP     Stack\n");
   printf("Initial Values      0     999   1000\n");
   // Continues the program until it reaches the (SIO, 0, 3) command that sets the halt flag to 0 and stops the program
   while(haltFlag == 1)
@@ -138,37 +139,56 @@ void main(int argc, char **argv)
     printf("%-4d%s %-4d%-8d", *programCounter, instructionRegister.opName, instructionRegister.components[1], instructionRegister.components[2]);
 
     // Execute Cycle
-    execute(instructionRegister, programCounter, stackPointer, basePointer, &haltFlag, stack);
+    execute(instructionRegister, programCounter, stackPointer, basePointer, &haltFlag, stack, activationRecords, &aRecords, &aRFlag);
     printf("%-6d%-6d%-6d ", *programCounter, *basePointer, *stackPointer);
-    printStack(stack);
+
+    if (haltFlag == 1)
+      printStack(stack, stackPointer, activationRecords);
+    else
+      printf("\n");
+
+    if (aRFlag == 1)
+    {
+      // Keeps track of where the activation records begins to denotate them while printing the stack
+      aRecords++;
+      activationRecords = realloc(activationRecords, sizeof(int) * aRecords);
+      activationRecords[aRecords - 1] = *stackPointer;
+    }
+    aRFlag = 0;
   }
 
   free(input);
+  free(activationRecords);
 }
 
-void printStack(int* stack)
+
+// Prints the current state of the stack
+void printStack(int *stack, int *sp, int *ar)
 {
-  int i;
-  for(i = 1000; i > 985; i--)
+  int i, j = 0;
+  for(i = MAX_DATA_STACK_HEIGHT; i > *sp; i--)
   {
-    printf("%d ", stack[i]);
+    printf("%d ", stack[i - 1]);
+    if (i - 1 == ar[j])
+    {
+      printf("| ");
+      j++;
+    }
   }
   printf("\n");
 }
 
-int base(int l, int base, int* stack) // l stand for L in the instruction format
+// Find base L levels down
+int base(int level, int base, int *stack)
 {
-  int b1; //find base L levels down
-  b1 = base;
-  while (l > 0)
+  int b1 = base;
+  while (level > 0)
   {
     b1 = stack[b1 - 1];
-    l--;
+    level--;
   }
   return b1;
 }
-
-
 
 // Gets the instruction at the 'address' specified by the programCounter value
 Instruction fetch(Instruction *input, int *pc)
@@ -177,24 +197,27 @@ Instruction fetch(Instruction *input, int *pc)
 }
 
 // Uses the opcode and other parameters to manipulate the stack
-void execute(Instruction ir, int *pc, int *sp, int *bp, int *flag, int* stack)
+void execute(Instruction ir, int *pc, int *sp, int *bp, int *hFlag, int *stack, int *ar, int *arNum, int *aFlag)
 {
+  int input;
+
   switch(ir.components[0])
   {
     case 1: // LIT
       *sp -= 1;
       stack[*sp] = ir.components[2];
-      //~append register.M onto the stack~
       *pc += 1;
       break;
     case 2: // OPR
       switch(ir.components[2])
       {
         case 0: // RET
+          ar[(*arNum) - 1] = NON_VALUE;
+          (*arNum)--;
+          ar = realloc(ar, sizeof(int) * (*arNum));
           *sp = *bp + 1;
-          *pc = stack[*sp - 4]; //~FIX THIS LINE, CONSTANT IS MEANT TO PREVENT INFINITE LOOP IN TESTCASE 1
+          *pc = stack[*sp - 4];
           *bp = stack[*sp - 3];
-          //*pc += 1;
           break;
         case 1: // NEG
           *pc += 1;
@@ -203,22 +226,22 @@ void execute(Instruction ir, int *pc, int *sp, int *bp, int *flag, int* stack)
         case 2: // ADD
           *pc += 1;
           *sp += 1;
-          stack[*sp] = stack[*sp] + stack[*sp-1];
+          stack[*sp] = stack[*sp] + stack[*sp - 1];
           break;
         case 3: // SUB
           *pc += 1;
           *sp += 1;
-          stack[*sp] = stack[*sp] - stack[*sp-1];
+          stack[*sp] = stack[*sp] - stack[*sp - 1];
           break;
         case 4: // MUL
           *pc += 1;
           *sp += 1;
-          stack[*sp] = stack[*sp] * stack[*sp-1];
+          stack[*sp] = stack[*sp] * stack[*sp - 1];
           break;
         case 5: // DIV
           *pc += 1;
           *sp += 1;
-          stack[*sp] = stack[*sp] / stack[*sp-1];
+          stack[*sp] = stack[*sp] / stack[*sp - 1];
           break;
         case 6: // ODD
           *pc += 1;
@@ -230,67 +253,81 @@ void execute(Instruction ir, int *pc, int *sp, int *bp, int *flag, int* stack)
         case 7: // MOD
           *pc += 1;
           *sp += 1;
-          stack[*sp] = stack[*sp] % stack[*sp-1];
+          stack[*sp] = stack[*sp] % stack[*sp - 1];
           break;
         case 8: // EQL
           *pc += 1;
           *sp += 1;
-          if (stack[*sp] == stack[*sp-1])
-            stack[*sp] = stack[*sp];
+          if (stack[*sp] == stack[*sp - 1])
+            stack[*sp] = 1;
+          else
+            stack[*sp] = 0;
           break;
         case 9: // NEQ
           *pc += 1;
           *sp += 1;
-          if (stack[*sp] != stack[*sp-1])
-            stack[*sp] = stack[*sp];
+          if (stack[*sp] != stack[*sp - 1])
+            stack[*sp] = 1;
+          else
+            stack[*sp] = 0;
           break;
         case 10: // LSS
           *pc += 1;
           *sp += 1;
-          if (stack[*sp] < stack[*sp-1])
-            stack[*sp] = stack[*sp];
+          if (stack[*sp] < stack[*sp - 1])
+            stack[*sp] = 1;
+          else
+            stack[*sp] = 0;
           break;
         case 11: // LEQ
           *pc += 1;
           *sp += 1;
-          if (stack[*sp] <= stack[*sp-1])
-            stack[*sp] = stack[*sp];
+          if (stack[*sp] <= stack[*sp - 1])
+            stack[*sp] = 1;
+          else
+            stack[*sp] = 0;
           break;
         case 12: // GTR
           *pc += 1;
           *sp += 1;
-          if (stack[*sp] > stack[*sp-1])
-            stack[*sp] = stack[*sp];
+          if (stack[*sp] > stack[*sp - 1])
+            stack[*sp] = 1;
+          else
+            stack[*sp] = 0;
           break;
         case 13: // GEQ
           *pc += 1;
           *sp += 1;
-          if (stack[*sp] >= stack[*sp-1])
-            stack[*sp] = stack[*sp];
+          if (stack[*sp] >= stack[*sp - 1])
+            stack[*sp] = 1;
+          else
+            stack[*sp] = 0;
           break;
       }
       break;
     case 3: // LOD
       *sp -= 1;
-      stack[*sp] = stack[base(ir.components[1],*bp, stack) - ir.components[2]];
+      stack[*sp] = stack[base(ir.components[1], *bp, stack) - ir.components[2]];
       *pc += 1;
       break;
     case 4: // STO
-      stack[base(ir.components[1],*bp, stack) - ir.components[2]] = stack[*sp];
+      stack[base(ir.components[1], *bp, stack) - ir.components[2]] = stack[*sp];
       *sp += 1;
       *pc += 1;
       break;
     case 5: // CAL
+      // Flag to add a bracket to symbolize a new activation record
+      *aFlag = 1;
       *pc += 1;
-      stack[*sp-1] = 0;
-      stack[*sp-2] = base(ir.components[1],*bp, stack);
-      stack[*sp-3] = *bp;
-      stack[*sp-4] = *pc;
+      stack[*sp - 1] = 0;
+      stack[*sp - 2] = base(ir.components[1], *bp, stack);
+      stack[*sp - 3] = *bp;
+      stack[*sp - 4] = *pc;
       *bp = *sp - 1;
       *pc = ir.components[2];
       break;
     case 6: // INC
-      *sp -=  ir.components[2];
+      *sp -= ir.components[2];
       *pc += 1;
       break;
     case 7: // JMP
@@ -302,17 +339,18 @@ void execute(Instruction ir, int *pc, int *sp, int *bp, int *flag, int* stack)
       *sp += 1;
       break;
     case 9: // SIO 1
-      //print(stack[sp])
+      printf("%d", stack[*sp]);
       *sp += 1;
       *pc += 1;
       break;
     case 10: // SIO 2
       *sp -= 1;
-      //~
+      scanf("Input a number: %d", &input);
+      stack[*sp] = input;
       *pc += 1;
       break;
     case 11: // SIO 3
-      *flag = 0;
+      *hFlag = 0;
       *pc += 1;
       break;
   }

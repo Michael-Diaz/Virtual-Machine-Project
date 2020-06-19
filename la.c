@@ -28,6 +28,7 @@ char name[10];	// name up to 11 chars
 int val; 		    // number (ASCII value)
 int level; 		  // L  level
 int adr; 		    // M  address
+char kindName[11];
 token_type tokens;
 } namerecord_t;
 
@@ -76,12 +77,9 @@ void main(int argc, char **argv)
 
     if (commmentFlag == 0)
     {
-      //if (buffer != ' ' && buffer != '\n' && buffer != '\t')
-      //{
         inputSize++;
         inputCopy = realloc(inputCopy, sizeof(char) * inputSize);
         inputCopy[inputSize - 1] = (char)buffer;
-      //}
     }
 
     if (buffer == '*' && fgetc(ifp) == '/')
@@ -92,8 +90,7 @@ void main(int argc, char **argv)
   }
 
   printf("\n");
-  for (int i = 0; i < inputSize; i++)
-    printf("%c", inputCopy[i]);
+
 
   int j = 0;
   int reservedWordFlag = -1;
@@ -102,13 +99,6 @@ void main(int argc, char **argv)
 
   while(inputCopy[j] != '\0')
   {
-    // if(inputCopy[j] = '\t' || inputCopy[j] == '\n' || inputCopy[j] == ' ')
-    // {
-    //   ;
-    //   lookForward = 0;
-    //   continue;
-    // }
-    //printf("Alpha check %d|\n", isalpha(inputCopy[j]));
     if(isalpha(inputCopy[j]))
     {
       int stringIndex = 0;
@@ -116,7 +106,7 @@ void main(int argc, char **argv)
       memset(lexString, 0, sizeof(lexString));
       lookForward = 1;
       lexString[stringIndex] = inputCopy[j];
-      //stringIndex++;
+
       while (isalpha(inputCopy[++j]) || isdigit(inputCopy[j]))
       {
         if(stringIndex > 11)
@@ -131,15 +121,8 @@ void main(int argc, char **argv)
         lexString[stringIndex] = inputCopy[j];
       }
 
-      // for(i = 0; i < 4; i++)
-      // {
-      // printf("|%c|", lexString[i]);
-      // }
-      //printf("|%s| ", lexString);
-
       for(i = 0; i < 12; i++)
       {
-        //printf(" %s ", reservedWords[i]);
         if(strcmp(lexString, reservedWords[i]) == 0)
         {
           reservedWordFlag = i;
@@ -148,46 +131,56 @@ void main(int argc, char **argv)
         else
           reservedWordFlag = 12;
       }
-    //  printf("Reserved Flad %d\n", reservedWordFlag);
+
       switch(reservedWordFlag)
       {
         case 0:
           lexTokens[lexTokensIndex].tokens = constsym;
-        //  printf("contsss");
+          strcpy(lexTokens[lexTokensIndex].kindName, lexString);
           break;
         case 1:
           lexTokens[lexTokensIndex].tokens = varsym;
-          //printf("var\n");
+          strcpy(lexTokens[lexTokensIndex].kindName, lexString);
           break;
         case 2:
           lexTokens[lexTokensIndex].tokens = procsym;
+          strcpy(lexTokens[lexTokensIndex].kindName, lexString);
           break;
         case 3:
           lexTokens[lexTokensIndex].tokens = callsym;
+          strcpy(lexTokens[lexTokensIndex].kindName, lexString);
           break;
         case 4:
           lexTokens[lexTokensIndex].tokens = ifsym;
+          strcpy(lexTokens[lexTokensIndex].kindName, lexString);
           break;
         case 5:
           lexTokens[lexTokensIndex].tokens = thensym;
+          strcpy(lexTokens[lexTokensIndex].kindName, lexString);
           break;
         case 6:
           lexTokens[lexTokensIndex].tokens = elsesym;
+          strcpy(lexTokens[lexTokensIndex].kindName, lexString);
           break;
         case 7:
           lexTokens[lexTokensIndex].tokens = whilesym;
+          strcpy(lexTokens[lexTokensIndex].kindName, lexString);
           break;
         case 8:
           lexTokens[lexTokensIndex].tokens = dosym;
+          strcpy(lexTokens[lexTokensIndex].kindName, lexString);
           break;
         case 9:
           lexTokens[lexTokensIndex].tokens = readsym;
+          strcpy(lexTokens[lexTokensIndex].kindName, lexString);
           break;
         case 10:
           lexTokens[lexTokensIndex].tokens = writesym;
+          strcpy(lexTokens[lexTokensIndex].kindName, lexString);
           break;
         case 11:
           lexTokens[lexTokensIndex].tokens = oddsym;
+          strcpy(lexTokens[lexTokensIndex].kindName, lexString);
           break;
         case 12:
           lexTokens[lexTokensIndex].tokens = identsym;
@@ -201,10 +194,11 @@ void main(int argc, char **argv)
       int temp;
       int numbersPlace = 1;
       int actualNum = inputCopy[j] - '0';
-      //printf("InputCpy: %s", inputCopy);
+      lookForward = 1;
+
       while(isdigit(inputCopy[++j]))
       {
-        //printf("InputCpy: %c", inputCopy[j]);
+
         if(numbersPlace > 4)
         {
           printf("Error Number is toooooooo long!!");
@@ -217,16 +211,15 @@ void main(int argc, char **argv)
         temp = inputCopy[j] - '0';
         actualNum = 10 * actualNum + temp;
       }
-      //printf("Digit: %s")
 
       if(isalpha(inputCopy[j]))
       {
         printf("Error variable name can not start with numbers");
         // while (isalpha(inputCopy[++j]) || isdigit(inputCopy[j]))
         // {}
-        continue;
+        break;;
       }
-      //printf("Digit: %s")
+
       lexTokens[lexTokensIndex].tokens = numbersym;
       lexTokens[lexTokensIndex].val = actualNum;
       lexTokensIndex++;
@@ -245,7 +238,6 @@ void main(int argc, char **argv)
         if(inputCopy[j] == specialSymbols[i])
         {
           specCharIndex = i;
-          printf("specCharIndex: %d\n", specCharIndex);
         }
       }
 
@@ -253,38 +245,47 @@ void main(int argc, char **argv)
       {
         case 0:
           lexTokens[lexTokensIndex].tokens = plussym;
+          strcpy(lexTokens[lexTokensIndex].kindName, "+");
           lexTokensIndex++;
           break;
         case 1:
           lexTokens[lexTokensIndex].tokens = minussym;
+          strcpy(lexTokens[lexTokensIndex].kindName, "-");
           lexTokensIndex++;
           break;
         case 2:
           lexTokens[lexTokensIndex].tokens = multsym;
+          strcpy(lexTokens[lexTokensIndex].kindName, "*");
           lexTokensIndex++;
           break;
         case 3:
           lexTokens[lexTokensIndex].tokens = slashsym;
+          strcpy(lexTokens[lexTokensIndex].kindName, "/");
           lexTokensIndex++;
           break;
         case 4:
           lexTokens[lexTokensIndex].tokens = lparentsym;
+          strcpy(lexTokens[lexTokensIndex].kindName, "(");
           lexTokensIndex++;
           break;
         case 5:
           lexTokens[lexTokensIndex].tokens = rparentsym;
+          strcpy(lexTokens[lexTokensIndex].kindName, ")");
           lexTokensIndex++;
           break;
         case 6:
           lexTokens[lexTokensIndex].tokens = eqlsym;
+          strcpy(lexTokens[lexTokensIndex].kindName, "=");
           lexTokensIndex++;
           break;
         case 7:
           lexTokens[lexTokensIndex].tokens = commasym;
+          strcpy(lexTokens[lexTokensIndex].kindName, ",");
           lexTokensIndex++;
           break;
         case 8:
           lexTokens[lexTokensIndex].tokens = periodsym;
+          strcpy(lexTokens[lexTokensIndex].kindName, ".");
           lexTokensIndex++;
           break;
         case 9:
@@ -292,14 +293,17 @@ void main(int argc, char **argv)
           if(inputCopy[j] == '>')
           {
             lexTokens[lexTokensIndex].tokens = neqsym;
+            strcpy(lexTokens[lexTokensIndex].kindName, "<>");
           }
           else if(inputCopy[j] == '=')
           {
             lexTokens[lexTokensIndex].tokens = leqsym;
+            strcpy(lexTokens[lexTokensIndex].kindName, "<=");
           }
           else
           {
             lexTokens[lexTokensIndex].tokens = lessym;
+            strcpy(lexTokens[lexTokensIndex].kindName, "<");
           }
           lexTokensIndex++;
           break;
@@ -308,22 +312,26 @@ void main(int argc, char **argv)
           if(inputCopy[j] == '=')
           {
             lexTokens[lexTokensIndex].tokens = geqsym;
+            strcpy(lexTokens[lexTokensIndex].kindName, ">=");
           }
           else
           {
             lexTokens[lexTokensIndex].tokens = gtrsym;
+            strcpy(lexTokens[lexTokensIndex].kindName, ">");
           }
           lexTokensIndex++;
           break;
         case 11:
           lexTokens[lexTokensIndex].tokens = semicolonsym;
+          strcpy(lexTokens[lexTokensIndex].kindName, ";");
           lexTokensIndex++;
-          printf("I made it");
+          //printf("I made it");
           break;
         case 12:
           if(inputCopy[++j] == '=')
           {
             lexTokens[lexTokensIndex].tokens = becomessym;
+            strcpy(lexTokens[lexTokensIndex].kindName, ":=");
             lexTokensIndex++;
           }
           else
@@ -333,14 +341,16 @@ void main(int argc, char **argv)
           break;
         case 13:
           lexTokens[lexTokensIndex].tokens = lbracesym;
+          strcpy(lexTokens[lexTokensIndex].kindName, "{");
           lexTokensIndex++;
           break;
         case 14:
           lexTokens[lexTokensIndex].tokens = rbracesym;
+          strcpy(lexTokens[lexTokensIndex].kindName, "}");
           lexTokensIndex++;
           break;
         default:
-          printf("Invalid symbols\n");
+          //printf("Invalid symbols\n");
           break;
       }
     }
@@ -350,11 +360,28 @@ void main(int argc, char **argv)
     }
   }
 
+  for(i = 0; i < lexTokensIndex; i++)
+  {
+  if(lexTokens[i].tokens == 2)
+    printf("%s\t\t%d\n", lexTokens[i].name, lexTokens[i].tokens);
+  else if(lexTokens[i].tokens == 3)
+    printf("%d\t\t%d\n", lexTokens[i].val, lexTokens[i].tokens);
+  else
+    printf("%s\t\t%d\n", lexTokens[i].kindName, lexTokens[i].tokens);
+  }
+  // if(lexTokens[0].tokens == 2)
+  //   printf("%s ", lexTokens[0].name);
+  // else if(lexTokens[0].tokens == 3)
+  //   printf("%d ", lexTokens[0].val);
+
+  printf("\n");
+  printf("Lexeme List\n");
   printf("%d ", lexTokens[0].tokens);
   if(lexTokens[0].tokens == 2)
     printf("%s ", lexTokens[0].name);
   else if(lexTokens[0].tokens == 3)
     printf("%d ", lexTokens[0].val);
+
 
   for(i = 1; i < lexTokensIndex; i++)
   {

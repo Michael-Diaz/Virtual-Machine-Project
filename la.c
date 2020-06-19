@@ -41,7 +41,7 @@ void main(int argc, char **argv)
   char buffer, *errorSym;
   int commmentFlag = 0;
   char* reservedWords[] = {"const", "var", "procedure", "call", "if", "then", "else", "while", "do", "read", "write", "odd"};
-  char specialSymbols[] = {'+','-','*','/','(',')','=',',','.','<','>',';',':'};
+  char specialSymbols[] = {'+','-','*','/','(',')','=',',','.','<','>',';',':','{','}'};
   namerecord_t lexTokens[1000];
   int lookForward = 0;
 
@@ -96,7 +96,7 @@ void main(int argc, char **argv)
     printf("%c", inputCopy[i]);
 
   int j = 0;
-  int reservedWordFlag;
+  int reservedWordFlag = -1;
   printf("Lexeme Table:\n");
   printf("Lexeme\t\tToken Type\n");
 
@@ -135,14 +135,20 @@ void main(int argc, char **argv)
       // {
       // printf("|%c|", lexString[i]);
       // }
+      //printf("|%s| ", lexString);
 
       for(i = 0; i < 12; i++)
       {
+        //printf(" %s ", reservedWords[i]);
         if(strcmp(lexString, reservedWords[i]) == 0)
         {
           reservedWordFlag = i;
+          break;
         }
+        else
+          reservedWordFlag = 12;
       }
+    //  printf("Reserved Flad %d\n", reservedWordFlag);
       switch(reservedWordFlag)
       {
         case 0:
@@ -183,7 +189,7 @@ void main(int argc, char **argv)
         case 11:
           lexTokens[lexTokensIndex].tokens = oddsym;
           break;
-        default:
+        case 12:
           lexTokens[lexTokensIndex].tokens = identsym;
           strcpy(lexTokens[lexTokensIndex].name, lexString);
           break;
@@ -195,14 +201,15 @@ void main(int argc, char **argv)
       int temp;
       int numbersPlace = 1;
       int actualNum = inputCopy[j] - '0';
-
+      //printf("InputCpy: %s", inputCopy);
       while(isdigit(inputCopy[++j]))
       {
+        //printf("InputCpy: %c", inputCopy[j]);
         if(numbersPlace > 4)
         {
           printf("Error Number is toooooooo long!!");
-          while(isdigit(inputCopy[++j]))
-          {}
+          // while(isdigit(inputCopy[++j]))
+          // {}
           lookForward = 0;
           break;
         }
@@ -210,29 +217,35 @@ void main(int argc, char **argv)
         temp = inputCopy[j] - '0';
         actualNum = 10 * actualNum + temp;
       }
+      //printf("Digit: %s")
 
       if(isalpha(inputCopy[j]))
       {
         printf("Error variable name can not start with numbers");
         // while (isalpha(inputCopy[++j]) || isdigit(inputCopy[j]))
         // {}
-        break;;
+        continue;
       }
+      //printf("Digit: %s")
       lexTokens[lexTokensIndex].tokens = numbersym;
       lexTokens[lexTokensIndex].val = actualNum;
       lexTokensIndex++;
+    }
+    else if(inputCopy[j] == '\n' ||inputCopy[j] == '\t' ||inputCopy[j] == ' ' )
+    {
+      j++;
+      continue;
     }
     else
     {
       lookForward = 0;
       int specCharIndex = -1;
-      for(i = 0; i < 14; i++)
+      for(i = 0; i < 15; i++)
       {
-        // if(strcmp(inputCopy[j], specialSymbols[i]) == 0)
-        // {
         if(inputCopy[j] == specialSymbols[i])
         {
           specCharIndex = i;
+          printf("specCharIndex: %d\n", specCharIndex);
         }
       }
 
@@ -305,10 +318,10 @@ void main(int argc, char **argv)
         case 11:
           lexTokens[lexTokensIndex].tokens = semicolonsym;
           lexTokensIndex++;
+          printf("I made it");
           break;
         case 12:
-          j++;
-          if(inputCopy[j] == '=')
+          if(inputCopy[++j] == '=')
           {
             lexTokens[lexTokensIndex].tokens = becomessym;
             lexTokensIndex++;
@@ -318,8 +331,16 @@ void main(int argc, char **argv)
             printf("This character is not supposed to be here!!!");
           }
           break;
+        case 13:
+          lexTokens[lexTokensIndex].tokens = lbracesym;
+          lexTokensIndex++;
+          break;
+        case 14:
+          lexTokens[lexTokensIndex].tokens = rbracesym;
+          lexTokensIndex++;
+          break;
         default:
-        //  printf("Invalid symbols\n");
+          printf("Invalid symbols\n");
           break;
       }
     }
@@ -329,20 +350,21 @@ void main(int argc, char **argv)
     }
   }
 
-  printf("\n%d ", lexTokens[0].tokens);
+  printf("%d ", lexTokens[0].tokens);
   if(lexTokens[0].tokens == 2)
-    printf("\t %s\n", lexTokens[0].name);
+    printf("%s ", lexTokens[0].name);
   else if(lexTokens[0].tokens == 3)
-    printf("\t %d\n", lexTokens[0].val);
+    printf("%d ", lexTokens[0].val);
 
   for(i = 1; i < lexTokensIndex; i++)
   {
-    printf("\n%d ", lexTokens[i].tokens);
+    printf("%d ", lexTokens[i].tokens);
     if(lexTokens[i].tokens == 2)
-      printf("\t %s\n", lexTokens[i].name);
+      printf("%s ", lexTokens[i].name);
     else if(lexTokens[i].tokens == 3)
-      printf("\t %d\n", lexTokens[i].val);
+      printf("%d ", lexTokens[i].val);
   }
+  printf("\n");
   //`Scan for keywords and tokenize them (const, var, procedure, call, if, then, else, while, do, read, write, odd)
     /*~
       char *pvar = strstr(inputCopy, "var")

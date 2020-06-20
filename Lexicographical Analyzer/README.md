@@ -12,6 +12,8 @@ Input files ***must*** follow the following format for the program to properly r
   * Numbers must be less than 99999
   * Comments are to be denotated block style (/\* ... \*/)
   * Declarations are to be done in the following syntax: \<variable name\> := \<value\>
+  * Keywords: "const, var, procedure, call, if, then, else, while, do, read, write, odd"
+  * Allowed Symbols: "'+’, ‘-‘, ‘*’, ‘/’, ‘(‘, ‘)’, ‘=’, ’,’ , ‘.’, ‘ <’, ‘>’,  ‘;’ , ’:’"
   
 ## Details
 The Lexicographical Analyzer tokenizes an input file in the PM/0 code syntax using the following representations:

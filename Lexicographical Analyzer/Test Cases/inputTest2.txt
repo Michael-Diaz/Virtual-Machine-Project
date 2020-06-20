@@ -1,0 +1,6 @@
+var xxxxxxxxxxxx, 8y;
+{
+  y := @;
+  /* Do not tokenize thi$ comment */
+  x := y + 567890;
+}.

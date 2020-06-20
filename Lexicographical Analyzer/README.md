@@ -10,8 +10,8 @@ Project assignment for a Systems Software class (COP 3402) at the University of 
 Input files ***must*** follow the following format for the program to properly run:
   * Variables must be 11 characters in length at a Maximum
   * Numbers must be less than 99999
-  * Comments are to be denotated block style (/* ... */)
-  * Declarations are to be done in the following syntax: <variable name> := <value>
+  * Comments are to be denotated block style (/\* ... \*/)
+  * Declarations are to be done in the following syntax: \<variable name\> := \<value\>
   
 ## Details
 The Lexicographical Analyzer tokenizes an input file in the PM/0 code syntax using the following representations:
@@ -22,7 +22,7 @@ The Lexicographical Analyzer tokenizes an input file in the PM/0 code syntax usi
 4. **plussym**: The '+' Charcater
 5. **minussym**: The '-' Character
 6. **multsym**: The '*' Character
-7. **slashsym*: The '/' Character
+7. **slashsym**: The '/' Character
 8. **oddsym**: Checking if the Variable is Odd
 9. **eqlsym**: The '=' Character
 10. **neqsym**: The '<>' Character

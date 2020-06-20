@@ -76,8 +76,8 @@ void main(int argc, char **argv)
       printf("A symbol does not belong here");
       exit(0);
     }
-    else
-     fprintf(ofp, "%c", buffer);
+    // else
+    //  fprintf(ofp, "%c", buffer);
 
     // Handles Comments
     if(buffer == '/')
@@ -85,7 +85,7 @@ void main(int argc, char **argv)
       bufferLookAhead = fgetc(ifp);
       if(bufferLookAhead == '*')
       {
-        printf("*");
+        //fprintf(ofp,"*");
         commmentFlag = 1;
       }
       else
@@ -99,7 +99,7 @@ void main(int argc, char **argv)
       }
     }
 
-    if (commmentFlag == 0)
+    if (commmentFlag == 0 && buffer != '*' && buffer != '/')
     {
         inputSize++;
         inputCopy = realloc(inputCopy, sizeof(char) * inputSize);
@@ -111,7 +111,7 @@ void main(int argc, char **argv)
       bufferLookAhead = fgetc(ifp);
       if(bufferLookAhead == '/')
       {
-        printf("/");
+        //fprintf(ofp, "/");
         commmentFlag = 0;
       }
       else
@@ -124,6 +124,11 @@ void main(int argc, char **argv)
         inputCopy[inputSize - 1] = (char)bufferLookAhead;
       }
     }
+  }
+
+  for(i = 0; i < inputSize; i++)
+  {
+    fprintf(ofp, "%c", inputCopy[i]);
   }
 
   fprintf(ofp, "\n");

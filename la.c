@@ -7,12 +7,6 @@
 #include <string.h>
 #include <ctype.h>
 
-#define  NORW 15       /* number of reserved words */
-#define  IMAX 32767       /* maximum integer value */
-#define  CMAX 11       /* maximum number of chars for idents */
-#define  NESTMAX 5         /* maximum depth of block nesting */
-#define  STRMAX 256         /* maximum length of strings */
-
 typedef enum { nulsym = 1, identsym, numbersym, plussym, minussym,
 multsym, slashsym, oddsym,  eqlsym, neqsym, lessym,
 leqsym, gtrsym, geqsym, lparentsym, rparentsym, commasym,
@@ -73,19 +67,19 @@ void main(int argc, char **argv)
     errorSym = strchr("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+-*/()=,.<>;:{} \n\t", buffer);
     if (errorSym == NULL && commmentFlag == 0)
     {
-      printf("A symbol does not belong here");
+      fprintf(ofp, "\n\nError #4 Unrecognized Symbol: %c\n", buffer);
       exit(0);
     }
-    // else
-    //  fprintf(ofp, "%c", buffer);
+    else
+      fprintf(ofp, "%c", buffer);
 
     // Handles Comments
     if(buffer == '/')
     {
       bufferLookAhead = fgetc(ifp);
+      fprintf(ofp, "%c", bufferLookAhead);
       if(bufferLookAhead == '*')
       {
-        //fprintf(ofp,"*");
         commmentFlag = 1;
       }
       else
@@ -109,9 +103,9 @@ void main(int argc, char **argv)
     if(buffer == '*')
     {
       bufferLookAhead = fgetc(ifp);
+      fprintf(ofp, "%c", bufferLookAhead);
       if(bufferLookAhead == '/')
       {
-        //fprintf(ofp, "/");
         commmentFlag = 0;
       }
       else
@@ -126,12 +120,11 @@ void main(int argc, char **argv)
     }
   }
 
-  for(i = 0; i < inputSize; i++)
-  {
-    fprintf(ofp, "%c", inputCopy[i]);
-  }
+  inputSize++;
+  inputCopy = realloc(inputCopy, sizeof(char) * inputSize);
+  inputCopy[inputSize - 1] = '\0';
 
-  fprintf(ofp, "\n");
+  fprintf(ofp, "\n\n");
   fprintf(ofp, "Lexeme Table:\n");
   fprintf(ofp, "Lexeme\t\tToken Type\n");
 
@@ -150,7 +143,7 @@ void main(int argc, char **argv)
       // check for variable names
       while (isalpha(inputCopy[++j]) || isdigit(inputCopy[j]))
       {
-        if(stringIndex > 11)
+        if(stringIndex > 9)
         {
           lookForward = 0;
           errorCode = 1;
@@ -255,7 +248,7 @@ void main(int argc, char **argv)
       // Invalid variable name check
       if(isalpha(inputCopy[j]))
       {
-        fprintf(ofp, "Error #2 Variable name can not start with numbers\n");
+        fprintf(ofp, "\nError #2 Variable name can not start with numbers\n");
         errorCode = 2;
         exit(0);
         break;;
@@ -282,6 +275,7 @@ void main(int argc, char **argv)
         if(inputCopy[j] == specialSymbols[i])
         {
           specCharIndex = i;
+          break;
         }
       }
 
@@ -409,7 +403,7 @@ void main(int argc, char **argv)
     {
       if(lexTokens[i].errorCode == 1)
       {
-        fprintf(ofp, "Error #1 Variable names must be less than 11 characters!\n");
+        fprintf(ofp, "\nError #1 Variable names must be less than 11 characters!\n");
         exit(0);
       }
       fprintf(ofp, "%s\t\t%d\n", lexTokens[i].name, lexTokens[i].tokens);
@@ -418,7 +412,7 @@ void main(int argc, char **argv)
     {
       if(lexTokens[i].errorCode == 3)
       {
-        fprintf(ofp, "Error #3 Number can only be a max of 5 digits!\n");
+        fprintf(ofp, "\nError #3 Number can only be a max of 5 digits!\n");
         exit(0);
       }
       fprintf(ofp, "%d\t\t%d\n", lexTokens[i].val, lexTokens[i].tokens);

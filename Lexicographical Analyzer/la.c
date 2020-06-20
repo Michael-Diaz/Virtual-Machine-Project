@@ -64,7 +64,7 @@ void main(int argc, char **argv)
   fprintf(ofp,"Source Program:\n");
   while ((buffer = fgetc(ifp)) != EOF)
   {
-    errorSym = strchr("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+-*/()=,.<>;:{} \n\t", buffer);
+    errorSym = strchr("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+-*/()=,.<>;:{} \r\n\t", buffer);
     if (errorSym == NULL && commmentFlag == 0)
     {
       fprintf(ofp, "\n\nError #4 Unrecognized Symbol: %c\n", buffer);

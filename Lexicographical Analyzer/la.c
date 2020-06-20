@@ -54,7 +54,7 @@ void main(int argc, char **argv)
 
   // If no filename is given, then the program exits
   if (argc > 1)
-     ifp = fopen(argv[1], "r");
+     ifp = fopen(argv[1], "rb+");
   else
     exit(0);
   ofp = fopen("output.txt", "w");
@@ -80,6 +80,7 @@ void main(int argc, char **argv)
       fprintf(ofp, "%c", bufferLookAhead);
       if(bufferLookAhead == '*')
       {
+        //fprintf(ofp,"*");
         commmentFlag = 1;
       }
       else
@@ -106,6 +107,7 @@ void main(int argc, char **argv)
       fprintf(ofp, "%c", bufferLookAhead);
       if(bufferLookAhead == '/')
       {
+        //fprintf(ofp, "/");
         commmentFlag = 0;
       }
       else
@@ -406,7 +408,7 @@ void main(int argc, char **argv)
         fprintf(ofp, "\nError #1 Variable names must be less than 11 characters!\n");
         exit(0);
       }
-      fprintf(ofp, "%s\t\t%d\n", lexTokens[i].name, lexTokens[i].tokens);
+      fprintf(ofp, "%-16s%d\n", lexTokens[i].name, lexTokens[i].tokens);
     }
     else if(lexTokens[i].tokens == 3)
     {
@@ -415,17 +417,17 @@ void main(int argc, char **argv)
         fprintf(ofp, "\nError #3 Number can only be a max of 5 digits!\n");
         exit(0);
       }
-      fprintf(ofp, "%d\t\t%d\n", lexTokens[i].val, lexTokens[i].tokens);
+      fprintf(ofp, "%-16d%d\n", lexTokens[i].val, lexTokens[i].tokens);
     }
     else
     {
-      fprintf(ofp, "%s\t\t%d\n", lexTokens[i].kindName, lexTokens[i].tokens);
+      fprintf(ofp, "%-16s%d\n", lexTokens[i].kindName, lexTokens[i].tokens);
     }
   }
 
   // Print to file
   fprintf(ofp, "\n");
-  fprintf(ofp, "Lexeme List\n");
+  fprintf(ofp, "Lexeme List:\n");
   fprintf(ofp, "%d ", lexTokens[0].tokens);
   if(lexTokens[0].tokens == 2)
     fprintf(ofp, "%s ", lexTokens[0].name);

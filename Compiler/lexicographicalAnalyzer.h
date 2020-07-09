@@ -38,7 +38,7 @@ char *arrayConvert(FILE *ifp)
     errorSym = strchr("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+-*/()=,.<>;:{} \r\n\t", buffer);
     if (errorSym == NULL && commmentFlag == 0)
     {
-      printf("\n\n*** Error #26, Unrecognized Symbol in Lex.\n", buffer);
+      printf("\n\n*** Error #26, Unrecognized Symbol in Lex.\n");
       exit(0);
     }
 
@@ -238,7 +238,7 @@ Namerecord *tokenize(char *inputCopy)
         printf("\n*** Error #27, Invalid Variable Name in Lex.\n");
         errorCode = 2;
         exit(0);
-        break; //~DELETE?
+        // ~REMOVED A break; CODE CHUNK HERE
       }
 
       lexTokens[lexTokensIndex].tokens = numbersym;
@@ -246,7 +246,7 @@ Namerecord *tokenize(char *inputCopy)
       lexTokens[lexTokensIndex].errorCode = errorCode;
       lexTokensIndex++;
     }
-    else if(inputCopy[i] == '\n' ||inputCopy[i] == '\t' ||inputCopy[i] == ' ')
+    else if(inputCopy[i] == '\n' || inputCopy[i] == '\t' || inputCopy[i] == ' ')
     {
       i++;
       continue;
@@ -372,6 +372,26 @@ Namerecord *tokenize(char *inputCopy)
       inputCopy[++i];
     }
   }
+
+  FILE *ofp = fopen("output.txt", "w");
+  i = 1;
+
+  fprintf(ofp, "%d", lexTokens[0].tokens);
+  if(lexTokens[0].tokens == 2)
+    fprintf(ofp, "%s", lexTokens[0].name);
+  else if(lexTokens[0].tokens == 3)
+    fprintf(ofp, "%d", lexTokens[0].val);
+  while (lexTokens[i].tokens != 0)
+  {
+    fprintf(ofp, " %d", lexTokens[i].tokens);
+    if(lexTokens[i].tokens == 2)
+      fprintf(ofp, " %s", lexTokens[i].name);
+    else if(lexTokens[i].tokens == 3)
+      fprintf(ofp, " %d", lexTokens[i].val);
+    i++;
+  }
+  fprintf(ofp, "\n");
+  fclose(ofp);
 
   return lexTokens;
 }

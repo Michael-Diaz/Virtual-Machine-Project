@@ -12,7 +12,7 @@
 typedef enum Token_Type
 {
   nulsym = 1, identsym, numbersym, plussym, minussym,
-  multsym, slashsym, oddsym,  eqlsym, neqsym, lessym,
+  multsym, slashsym, oddsym, eqlsym, neqsym, lessym,
   leqsym, gtrsym, geqsym, lparentsym, rparentsym, commasym,
   semicolonsym, periodsym, becomessym, beginsym, endsym,
   ifsym, thensym, whilesym, dosym, callsym, constsym,
@@ -56,22 +56,31 @@ static Namerecord *tokens;
 static int numInstructions = 0, currentToken, numberToken, kind, lexListIndex = 0, diff, prevdiff = 0;
 
 
-char *arrayConvert(FILE *ifp);
-Namerecord *tokenize(char *inputCopy);
+char *arrayConvert(FILE *ifp, FILE *ofp);
+Namerecord *tokenize(char *inputCopy, FILE *ofp);
 void printLexemes(Namerecord *lexemes);
-void program(FILE* ifp, Symbol* symbolTable, Instruction* instructions);
+void program(Symbol* symbolTable, Instruction* instructions, FILE *ofp);
 void addToOutput(int op, int l, int m, Instruction* instructions);
-int nextToken(FILE* ifp);
-void block(int tableIndex,int lexLevel, FILE* ifp, Symbol* symbolTable, Instruction* instructions);
+int nextToken(void);
+void block(int tableIndex,int lexLevel, Symbol* symbolTable, Instruction* instructions);
 void addToSymbolTable(int kind, int* tableIndexPointer, int* dataIndexPointer, int lexLevel, Symbol* table);
-void constCheck(int lexLevel, int* tableIndexPointer, int* dataIndexPointer, FILE* ifp, Symbol* symbolTable);
-void varCheck(int lexLevel, int* tableIndexPointer, int* dataIndexPointer, FILE* ifp, Symbol* symbolTable);
-void statement(int lexLevel, int* tableIndexPointer, FILE* ifp, Instruction* instructions, Symbol* symbolTable);
+void constCheck(int lexLevel, int* tableIndexPointer, int* dataIndexPointer, Symbol* symbolTable);
+void varCheck(int lexLevel, int* tableIndexPointer, int* dataIndexPointer, Symbol* symbolTable);
+void statement(int lexLevel, int* tableIndexPointer, Instruction* instructions, Symbol* symbolTable);
 int indexCheck(char* name, int* tableIndexPointer, Symbol* symbolTable, int lexLevel);
-void condition(int lexLevel, int* tableIndexPointer, FILE* ifp, Instruction* instructions, Symbol* symbolTable);
-void expression(int lexLevel, int *tableIndexPointer, FILE* ifp, Instruction* instructions, Symbol* symbolTable);
-void term(int lexLevel, int* tableIndexPointer, FILE* ifp, Instruction* instructions, Symbol* symbolTable);
-void factor(int lexLevel, int* tableIndexPointer, Symbol* symbolTable, FILE* ifp, Instruction* instructions);
+void condition(int lexLevel, int* tableIndexPointer, Instruction* instructions, Symbol* symbolTable);
+void expression(int lexLevel, int *tableIndexPointer, Instruction* instructions, Symbol* symbolTable);
+void term(int lexLevel, int* tableIndexPointer, Instruction* instructions, Symbol* symbolTable);
+void factor(int lexLevel, int* tableIndexPointer, Symbol* symbolTable, Instruction* instructions);
+void printAssembly(Instruction* instructions);
+void assignOperations(Instruction *instructions);
+void printStack(Instruction ir, int *stack, int *sp, int *ar, FILE *ofp, int flag);
+int base(int level, int base, int *stack);
+Instruction fetch(Instruction *input, int *pc);
+void execute(Instruction ir, int *pc, int *sp, int *bp, int *hFlag, int *stack, int *ar, int *arNum, int *aFlag);
+void cycle(Instruction *input, int flag, FILE *ofp);
+
+// DRIVER
 
 void main(int argc, char **argv)
 {
@@ -95,36 +104,42 @@ void main(int argc, char **argv)
   }
 
   FILE *input = fopen(arguments[1], "r");
+  FILE *output = fopen("output.txt", "w");
 
-  char *code = arrayConvert(input);
-  tokens = tokenize(code);
+  char *code = arrayConvert(input, output);
+  tokens = tokenize(code, output);
   if (flags[0])
     printLexemes(tokens);
-
-  FILE* ifp;
-  ifp = fopen("output.txt", "r");
 
   Symbol symbolTable[1000] = {0};
   Instruction instructions[100];
 
-  program(ifp, symbolTable, instructions);
+  program(symbolTable, instructions, output);
+  if (flags[1])
+    printAssembly(instructions);
+
+  //assignOperations(instructions);
+  cycle(instructions, flags[2], output);
 
   fclose(input);
-  fclose(ifp);
+  fclose(output);
 }
 
 // LEXICOGRAPHICAL ANALYZER
 
-char *arrayConvert(FILE *ifp)
+char *arrayConvert(FILE *ifp, FILE *ofp)
 {
   char *inputCopy = malloc(sizeof(char));
   int inputSize = 0, commmentFlag = 0;
   char *errorSym;
 
   char buffer, bufferLookAhead;
-
+  printf("Input File:\n");
+  fprintf(ofp, "Input File:\n");
   while ((buffer = fgetc(ifp)) != EOF)
   {
+    printf("%c", buffer);
+    fprintf(ofp, "%c", buffer);
     errorSym = strchr("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+-*/()=,.<>;:{} \r\n\t", buffer);
     if (errorSym == NULL && commmentFlag == 0)
     {
@@ -175,6 +190,8 @@ char *arrayConvert(FILE *ifp)
       }
     }
   }
+  printf("\n");
+  fprintf(ofp, "\n");
 
   fclose(ifp);
 
@@ -184,7 +201,7 @@ char *arrayConvert(FILE *ifp)
   return inputCopy;
 }
 
-Namerecord *tokenize(char *inputCopy)
+Namerecord *tokenize(char *inputCopy, FILE *ofp)
 {
   char* reservedWords[] = {"const", "var", "procedure", "call", "if", "then", "else", "while", "do", "read", "write", "odd", "begin", "end"};
   char specialSymbols[] = {'+','-','*','/','(',')','=',',','.','<','>',';',':'};
@@ -316,7 +333,7 @@ Namerecord *tokenize(char *inputCopy)
         {
           errorCode = 3;
           lookForward = 0;
-          printf("*** Error #25, This Number is Too Large in Parse.\n");
+          printf("*** Error #25, This Number is Too Large in Parser\n");
           exit(0);
         }
         numbersPlace++;
@@ -327,10 +344,9 @@ Namerecord *tokenize(char *inputCopy)
       // Invalid variable name check
       if(isalpha(inputCopy[i]))
       {
-        printf("*** Error #27, Invalid Variable Name in Lex.\n");
+        printf("*** Error #27, Invalid Identifier Name in Lex.\n");
         errorCode = 2;
         exit(0);
-        // ~REMOVED A break; CODE CHUNK HERE
       }
 
       lexTokens[lexTokensIndex].tokens = numbersym;
@@ -358,6 +374,7 @@ Namerecord *tokenize(char *inputCopy)
         }
       }
 
+      int tempI;
       switch(specCharIndex)
       {
         case 0: // +
@@ -406,14 +423,16 @@ Namerecord *tokenize(char *inputCopy)
           lexTokensIndex++;
           break;
         case 9: // <> <= <
-          i++;
-          if(inputCopy[i] == '>')
+          tempI = i + 1;
+          if(inputCopy[tempI] == '>')
           {
+            i++;
             lexTokens[lexTokensIndex].tokens = neqsym;
             strcpy(lexTokens[lexTokensIndex].kindName, "<>");
           }
-          else if(inputCopy[i] == '=')
+          else if(inputCopy[tempI] == '=')
           {
+            i++;
             lexTokens[lexTokensIndex].tokens = leqsym;
             strcpy(lexTokens[lexTokensIndex].kindName, "<=");
           }
@@ -425,9 +444,10 @@ Namerecord *tokenize(char *inputCopy)
           lexTokensIndex++;
           break;
         case 10: // >= >
-          i++;
-          if(inputCopy[i] == '=')
+          tempI = i + 1;
+          if(inputCopy[tempI] == '=')
           {
+            i++;
             lexTokens[lexTokensIndex].tokens = geqsym;
             strcpy(lexTokens[lexTokensIndex].kindName, ">=");
           }
@@ -452,7 +472,8 @@ Namerecord *tokenize(char *inputCopy)
           }
           else
           {
-            printf("This character is not supposed to be here!!!");
+            printf("*** Error #29, : Without = in Lex.\n");
+            exit(1);
           }
           break;
         default:
@@ -465,9 +486,22 @@ Namerecord *tokenize(char *inputCopy)
     }
   }
 
-  FILE *ofp = fopen("output.txt", "w");
+  i = 0;
+  fprintf(ofp, "Lexeme Table:\n");
+  fprintf(ofp, "Lexeme          Token Type\n");
+  while(lexTokens[i].tokens != 0)
+  {
+    if(lexTokens[i].tokens == 2)
+      fprintf(ofp, "%-16s%d\n", lexTokens[i].name, lexTokens[i].tokens);
+    else if(lexTokens[i].tokens == 3)
+      fprintf(ofp, "%-16d%d\n", lexTokens[i].val, lexTokens[i].tokens);
+    else
+      fprintf(ofp, "%-16s%d\n", lexTokens[i].kindName, lexTokens[i].tokens);
+    i++;
+  }
   i = 1;
 
+  fprintf(ofp, "\nLexeme List:\n");
   fprintf(ofp, "%d", lexTokens[0].tokens);
   if(lexTokens[0].tokens == 2)
     fprintf(ofp, "%s", lexTokens[0].name);
@@ -482,16 +516,30 @@ Namerecord *tokenize(char *inputCopy)
       fprintf(ofp, " %d", lexTokens[i].val);
     i++;
   }
-  fprintf(ofp, "\n");
-  fclose(ofp);
+  fprintf(ofp, "\n\n");
 
   return lexTokens;
 }
 
 void printLexemes(Namerecord *lexemes)
 {
-  int i = 1;
+  int i = 0;
 
+  printf("Lexeme Table:\n");
+  printf("Lexeme          Token Type\n");
+  while(lexemes[i].tokens != 0)
+  {
+    if(lexemes[i].tokens == 2)
+      printf("%-16s%d\n", lexemes[i].name, lexemes[i].tokens);
+    else if(lexemes[i].tokens == 3)
+      printf("%-16d%d\n", lexemes[i].val, lexemes[i].tokens);
+    else
+      printf("%-16s%d\n", lexemes[i].kindName, lexemes[i].tokens);
+    i++;
+  }
+  i = 1;
+
+  printf("\nLexeme List:\n");
   printf("%d", lexemes[0].tokens);
   if(lexemes[0].tokens == 2)
     printf("%s", lexemes[0].name);
@@ -504,9 +552,9 @@ void printLexemes(Namerecord *lexemes)
       printf(" %s", lexemes[i].name);
     else if(lexemes[i].tokens == 3)
       printf(" %d", lexemes[i].val);
-      i++;
+    i++;
   }
-  printf("\n");
+  printf("\n\n");
 }
 
 // PARSER & ASSEMBLER
@@ -551,7 +599,7 @@ void addToOutput(int op, int l, int m, Instruction* instructions)
   numInstructions++;
 }
 
-int nextToken(FILE* ifp)
+int nextToken(void)
 {
   currentToken = tokens[lexListIndex].tokens;
 
@@ -567,109 +615,113 @@ int nextToken(FILE* ifp)
   return currentToken;
 }
 
-void program(FILE* ifp, Symbol* symbolTable, Instruction* instructions)
+void program(Symbol *symbolTable, Instruction *instructions, FILE *ofp)
 {
-  currentToken = nextToken(ifp);
-  block(0, 0, ifp, symbolTable, instructions);
+  int i;
+  currentToken = nextToken();
+  block(0, 0, symbolTable, instructions);
 
   if(currentToken != periodsym)
   {
-    printf("Error 9, . Expected in Parse.\n");
+    printf("*** Error #9, . Expected in Parser\n");
     exit(1);
   }
 
-  int i;
+  assignOperations(instructions);
+
+  fprintf(ofp, "Line  Op    L     M\n");
   for(i = 0; i < numInstructions; i++)
   {
-     printf("%d %d %d\n", instructions[i].components[0], instructions[i].components[1], instructions[i].components[2]);
+    fprintf(ofp, "%-6d%-6s%-6d%-6d\n", i, instructions[i].opName, instructions[i].components[1], instructions[i].components[2]);
   }
+  fprintf(ofp, "\n");
 }
 
-void block(int tableIndex,int lexLevel, FILE* ifp, Symbol* symbolTable, Instruction* instructions)
+void block(int tableIndex,int lexLevel, Symbol* symbolTable, Instruction* instructions)
 {
   int tableIndexTemp = tableIndex;
   int dataIndex = 4;
   int numInstructionsTemp;
   symbolTable[tableIndex].addr = numInstructions;
-  addToOutput(7,0,0,instructions);
+  //addToOutput(7,0,0,instructions);
 
   do
   {
     if(currentToken == constsym)
     {
-      currentToken = nextToken(ifp);
+      currentToken = nextToken();
       do
       {
-        constCheck(lexLevel, &tableIndex, &dataIndex, ifp, symbolTable);
+        constCheck(lexLevel, &tableIndex, &dataIndex, symbolTable);
         while(currentToken == commasym)
         {
-          currentToken = nextToken(ifp);
-          constCheck(lexLevel, &tableIndex, &dataIndex, ifp, symbolTable);
+          currentToken = nextToken();
+          constCheck(lexLevel, &tableIndex, &dataIndex, symbolTable);
         }
         if(currentToken == semicolonsym)
         {
-          currentToken = nextToken(ifp);
+          currentToken = nextToken();
         }
         else
         {
-          printf("Error 5, ; or , Missing in Parse.\n");
+          printf("*** Error #5, ; or , Missing in Parser\n");
           exit(1);
         }
       } while(currentToken == identsym);
     }
     if(currentToken == varsym)
     {
-      currentToken = nextToken(ifp);
+      currentToken = nextToken();
       do
       {
-        varCheck(lexLevel, &tableIndex, &dataIndex, ifp, symbolTable);
+        varCheck(lexLevel, &tableIndex, &dataIndex, symbolTable);
         while(currentToken == commasym)
         {
-          currentToken = nextToken(ifp);
-          varCheck(lexLevel, &tableIndex, &dataIndex, ifp, symbolTable);
+          currentToken = nextToken();
+          varCheck(lexLevel, &tableIndex, &dataIndex, symbolTable);
         }
         if(currentToken == semicolonsym)
         {
-          currentToken = nextToken(ifp);
+          currentToken = nextToken();
         }
         else
         {
-          printf("Error 5, ; or , Missing in Parse.\n");
+          printf("*** Error #5, ; or , Missing in Parser\n");
           exit(1);
         }
       } while(currentToken == identsym);
     }
     while(currentToken == procsym)
     {
-      currentToken = nextToken(ifp);
+      currentToken = nextToken();
       if(currentToken == identsym)
       {
         addToSymbolTable(3, &tableIndex, &dataIndex, lexLevel, symbolTable);
-        currentToken = nextToken(ifp);
+        currentToken = nextToken();
       }
       else
       {
-        printf("Error 4, Const, Var or Procedure Must be Followed by an Identifier in Parse.\n");
+        printf("*** Error #4, Const, Var or Procedure Must be Followed by an Identifier in Parser\n");
         exit(1);
       }
       if(currentToken == semicolonsym)
       {
-        currentToken = nextToken(ifp);
+        currentToken = nextToken();
       }
       else
       {
-        printf("Error 5, ; or , Missing in Parse.\n");
+        printf("*** Error #5, ; or , Missing in Parser\n");
         exit(1);
       }
-      block(lexLevel+1, tableIndex, ifp, symbolTable, instructions);
+      block(lexLevel+1, tableIndex, symbolTable, instructions);
 
       if(currentToken == semicolonsym)
       {
-        currentToken = nextToken(ifp);
+        currentToken = nextToken();
       }
       else
       {
-        printf("Error 5, ; or , Missing in Parse.\n");
+        printf("*** Error #5, ; or , Missing in Parser\n");
         exit(1);
       }
     }
@@ -679,14 +731,14 @@ void block(int tableIndex,int lexLevel, FILE* ifp, Symbol* symbolTable, Instruct
   numInstructionsTemp = numInstructions;
 
   addToOutput(6, 0, dataIndex, instructions);
-  statement(lexLevel, &tableIndex, ifp, instructions, symbolTable);
+  statement(lexLevel, &tableIndex, instructions, symbolTable);
   if (lexLevel != 0)
     addToOutput(2, 0, 0, instructions);
   else
     addToOutput(11, 0, 3, instructions);
 }
 
-void statement(int lexLevel, int* tableIndexPointer, FILE* ifp, Instruction* instructions, Symbol* symbolTable)
+void statement(int lexLevel, int *tableIndexPointer, Instruction *instructions, Symbol *symbolTable)
 {
   int i, numInstructionsTemp1, numInstructionsTemp2;
 
@@ -695,30 +747,29 @@ void statement(int lexLevel, int* tableIndexPointer, FILE* ifp, Instruction* ins
     i = indexCheck(name, tableIndexPointer, symbolTable, lexLevel);
     if(i == 0)
     {
-      printf("Error 11, Undeclared Identifier in Parse.\n");
-      //exit(1);
+      printf("*** Error #11, Undeclared Identifier in Parser\n");
+      exit(1);
     }
     else if(symbolTable[i].kind != 2)
     {
-      printf("Error 12, Assignment to Constant or Procedure is Not Allowed in Parse.\n");
-      //i = 0;
+      printf("*** Error #12, Assignment to Constant or Procedure is Not Allowed in Parser\n");
       exit(1);
     }
 
 
-    currentToken = nextToken(ifp);
+    currentToken = nextToken();
 
     if(currentToken == becomessym)
     {
-      currentToken = nextToken(ifp);
+      currentToken = nextToken();
     }
     else
     {
-      printf("Error 13, Assignment Operator Expected in Parse.\n");
+      printf("*** Error #13, Assignment Operator Expected in Parser\n");
       exit(0);
     }
 
-    expression(lexLevel, tableIndexPointer, ifp, instructions, symbolTable);
+    expression(lexLevel, tableIndexPointer, instructions, symbolTable);
 
     if(i != 0)
     {
@@ -727,17 +778,18 @@ void statement(int lexLevel, int* tableIndexPointer, FILE* ifp, Instruction* ins
   }
   else if(currentToken == callsym)
   {
-    currentToken = nextToken(ifp);
+    currentToken = nextToken();
     if(currentToken != identsym)
     {
-      printf("Error 14, 'call' Must be Followed by an Identifier in Parse.\n");
+      printf("*** Error #14, 'call' Must be Followed by an Identifier in Parser\n");
+      exit(1);
     }
     else
     {
       i = indexCheck(name, tableIndexPointer, symbolTable, lexLevel);
       if(i == 0)
       {
-        printf("Error 11, Undeclared Identifier in Parse.\n");
+        printf("*** Error #11, Undeclared Identifier in Parser\n");
         exit(1);
       }
       else if(symbolTable[i].kind == 3)
@@ -746,100 +798,100 @@ void statement(int lexLevel, int* tableIndexPointer, FILE* ifp, Instruction* ins
       }
       else
       {
-        printf("Error 15, Call of a Constant or Variable is Meaningless in Parse.\n");
+        printf("*** Error #15, Call of a Constant or Variable is Meaningless in Parser\n");
         exit(1);
       }
-      currentToken = nextToken(ifp);
+      currentToken = nextToken();
     }
   }
   else if(currentToken == ifsym)
   {
-    currentToken = nextToken(ifp);
-    condition(lexLevel, tableIndexPointer, ifp, instructions, symbolTable);
+    currentToken = nextToken();
+    condition(lexLevel, tableIndexPointer, instructions, symbolTable);
     if(currentToken == thensym)
     {
-      currentToken = nextToken(ifp);
+      currentToken = nextToken();
     }
     else
     {
-      printf("Error 16, 'then' Expected in Parse.\n");
+      printf("*** Error #16, 'then' Expected in Parser\n");
       exit(1);
     }
 
     numInstructionsTemp1 = numInstructions;
-    addToOutput(8,0,0,instructions);
-    statement(lexLevel, tableIndexPointer, ifp, instructions, symbolTable);
+    addToOutput(8, 0, 0, instructions);
+    statement(lexLevel, tableIndexPointer, instructions, symbolTable);
 
     if(currentToken == elsesym)
     {
-      currentToken = nextToken(ifp);
+      currentToken = nextToken();
       instructions[numInstructionsTemp1].components[2] = numInstructions + 1;
       numInstructionsTemp1 = numInstructions;
       addToOutput(7, 0, 0, instructions);
-      statement(lexLevel, tableIndexPointer, ifp, instructions, symbolTable);
+      statement(lexLevel, tableIndexPointer, instructions, symbolTable);
     }
-    instructions[numInstructionsTemp1].components[2] = numInstructions;
+    instructions[numInstructionsTemp1].components[2] = numInstructions ;
 
   }
   else if(currentToken == beginsym)
   {
-    currentToken = nextToken(ifp);
-    statement(lexLevel, tableIndexPointer, ifp, instructions, symbolTable);
+    currentToken = nextToken();
+    statement(lexLevel, tableIndexPointer, instructions, symbolTable);
 
     while(currentToken == semicolonsym)
     {
-      currentToken = nextToken(ifp);
-      statement(lexLevel, tableIndexPointer, ifp, instructions, symbolTable);
+      currentToken = nextToken();
+      statement(lexLevel, tableIndexPointer, instructions, symbolTable);
     }
     if(currentToken == endsym)
     {
-      currentToken = nextToken(ifp);
+      currentToken = nextToken();
     }
     else
     {
-      printf("Error 17, ; or 'end' Expected in Parse.\n");
+      printf("*** Error #17, ; or 'end' Expected in Parser\n");
       exit(1);
     }
   }
   else if(currentToken == whilesym)
   {
     numInstructionsTemp1 = numInstructions;
-    currentToken = nextToken(ifp);
-    condition(lexLevel, tableIndexPointer, ifp, instructions, symbolTable);
+    currentToken = nextToken();
+    condition(lexLevel, tableIndexPointer, instructions, symbolTable);
     numInstructionsTemp2 = numInstructions;
-    addToOutput(8,0,0,instructions);
+    addToOutput(8, 0, 0, instructions);
     if(currentToken == dosym)
     {
-      currentToken = nextToken(ifp);
+      currentToken = nextToken();
     }
     else
     {
-      printf("Error 18, 'do' Expected in Parse.\n");
+      printf("*** Error #18, 'do' Expected in Parser\n");
       exit(1);
     }
-    statement(lexLevel, tableIndexPointer, ifp, instructions, symbolTable);
-    addToOutput(7,0, numInstructionsTemp1, instructions);
+    statement(lexLevel, tableIndexPointer, instructions, symbolTable);
+    addToOutput(7, 0, numInstructionsTemp1, instructions);
     instructions[numInstructionsTemp2].components[2] = numInstructions;
   }
   else if(currentToken == writesym)
   {
-    currentToken = nextToken(ifp);
-    expression(lexLevel, tableIndexPointer, ifp, instructions, symbolTable);
-    addToOutput(9,0,1,instructions);
+    currentToken = nextToken();
+    expression(lexLevel, tableIndexPointer, instructions, symbolTable);
+    addToOutput(9, 0, 1, instructions);
   }
   else if(currentToken == readsym)
   {
-    currentToken = nextToken(ifp);
-    addToOutput(10,0,2,instructions);
+    currentToken = nextToken();
+    addToOutput(10, 0, 2, instructions);
     i = indexCheck(name, tableIndexPointer, symbolTable, lexLevel);
     if(i == 0)
     {
-      printf("Error 11, Undeclared Identifier in Parse.\n");
-      //exit(1);
+      printf("*** Error #11, Undeclared Identifier in Parser\n");
+      exit(1);
     }
     else if(symbolTable[i].kind != 2)
     {
-      printf("Error 12, Assignment to Constant or Procedure is Not Allowed in Parse.\n");
+      printf("*** Error #12, Assignment to Constant or Procedure is Not Allowed in Parser\n");
       exit(1);
     }
 
@@ -847,66 +899,66 @@ void statement(int lexLevel, int* tableIndexPointer, FILE* ifp, Instruction* ins
     {
       addToOutput(4, lexLevel - symbolTable[i].level, symbolTable[i].addr, instructions);
     }
-    currentToken = nextToken(ifp);
+    currentToken = nextToken();
   }
 }
 
-void condition(int lexLevel, int* tableIndexPointer, FILE* ifp, Instruction* instructions, Symbol* symbolTable)
+void condition(int lexLevel, int* tableIndexPointer, Instruction* instructions, Symbol* symbolTable)
 {
   int relation;
   if(currentToken == oddsym)
   {
-    currentToken = nextToken(ifp);
-    expression(lexLevel, tableIndexPointer, ifp, instructions, symbolTable);
+    currentToken = nextToken();
+    expression(lexLevel, tableIndexPointer, instructions, symbolTable);
     addToOutput(2, 0, 6, instructions);
   }
   else
   {
-    expression(lexLevel, tableIndexPointer, ifp, instructions, symbolTable);
-    if((currentToken != eqlsym) && (currentToken != neqsym) && (currentToken != lessym) && (currentToken != gtrsym) && (currentToken != geqsym))
+    expression(lexLevel, tableIndexPointer, instructions, symbolTable);
+    if((currentToken != eqlsym) && (currentToken != neqsym) && (currentToken != lessym) && (currentToken != leqsym) && (currentToken != gtrsym) && (currentToken != geqsym))
     {
-      printf("Error 20, Relational Operator Expected in Parse.\n");
+      printf("*** Error #20, Relational Operator Expected in Parser\n");
       exit(1);
     }
     else
     {
       relation = currentToken;
-      currentToken = nextToken(ifp);
-      expression(lexLevel, tableIndexPointer, ifp, instructions, symbolTable);
+      currentToken = nextToken();
+      expression(lexLevel, tableIndexPointer, instructions, symbolTable);
       switch(relation)
       {
         case 9:
-          addToOutput(2,0,8,instructions);
+          addToOutput(2, 0, 8, instructions);
           break;
         case 10:
-          addToOutput(2,0,9,instructions);
+          addToOutput(2, 0, 9, instructions);
           break;
         case 11:
-          addToOutput(2,0,10,instructions);
+          addToOutput(2, 0, 10, instructions);
           break;
         case 12:
-          addToOutput(2,0,11,instructions);
+          addToOutput(2, 0, 11, instructions);
           break;
         case 13:
-          addToOutput(2,0,12,instructions);
+          addToOutput(2, 0, 12, instructions);
           break;
         case 14:
-          addToOutput(2,0,13,instructions);
+          addToOutput(2, 0, 13, instructions);
           break;
       }
     }
   }
 }
 
-void expression(int lexLevel, int *tableIndexPointer, FILE* ifp, Instruction* instructions, Symbol* symbolTable)
+void expression(int lexLevel, int *tableIndexPointer, Instruction* instructions, Symbol* symbolTable)
 {
   int addition;
 
   if(currentToken == plussym || currentToken == minussym)
   {
     addition = currentToken;
-    currentToken = nextToken(ifp);
-    term(lexLevel, tableIndexPointer, ifp, instructions, symbolTable);
+    currentToken = nextToken();
+    term(lexLevel, tableIndexPointer, instructions, symbolTable);
     if(addition == minussym)
     {
       addToOutput(2, 0, 1, instructions);
@@ -914,13 +966,13 @@ void expression(int lexLevel, int *tableIndexPointer, FILE* ifp, Instruction* in
   }
   else
   {
-    term(lexLevel, tableIndexPointer, ifp, instructions, symbolTable);
+    term(lexLevel, tableIndexPointer, instructions, symbolTable);
   }
   while(currentToken == plussym || currentToken == minussym)
   {
     addition = currentToken;
-    currentToken = nextToken(ifp);
-    term(lexLevel, tableIndexPointer, ifp, instructions, symbolTable);
+    currentToken = nextToken();
+    term(lexLevel, tableIndexPointer, instructions, symbolTable);
     if(addition == plussym)
     {
       addToOutput(2, 0, 2, instructions);
@@ -932,15 +984,15 @@ void expression(int lexLevel, int *tableIndexPointer, FILE* ifp, Instruction* in
   }
 }
 
-void term(int lexLevel, int* tableIndexPointer, FILE* ifp, Instruction* instructions, Symbol* symbolTable)
+void term(int lexLevel, int* tableIndexPointer, Instruction* instructions, Symbol* symbolTable)
 {
   int mult;
-  factor(lexLevel, tableIndexPointer, symbolTable, ifp, instructions);
+  factor(lexLevel, tableIndexPointer, symbolTable, instructions);
   while(currentToken == multsym || currentToken == slashsym)
   {
     mult = currentToken;
-    currentToken = nextToken(ifp);
-    factor(lexLevel, tableIndexPointer, symbolTable, ifp, instructions);
+    currentToken = nextToken();
+    factor(lexLevel, tableIndexPointer, symbolTable, instructions);
     if(mult == multsym)
     {
       addToOutput(2, 0, 4, instructions);
@@ -952,7 +1004,7 @@ void term(int lexLevel, int* tableIndexPointer, FILE* ifp, Instruction* instruct
   }
 }
 
-void factor(int lexLevel, int* tableIndexPointer, Symbol* symbolTable, FILE* ifp, Instruction* instructions)
+void factor(int lexLevel, int* tableIndexPointer, Symbol* symbolTable, Instruction* instructions)
 {
   int i, lexLevelTemp, address, value;
   while((currentToken == identsym) || (currentToken == numbersym) || (currentToken == lparentsym))
@@ -962,7 +1014,7 @@ void factor(int lexLevel, int* tableIndexPointer, Symbol* symbolTable, FILE* ifp
       i = indexCheck(name, tableIndexPointer, symbolTable, lexLevel);
       if(i == 0)
       {
-        printf("Error 11, Undeclared Identifier in Parse.\n");
+        printf("*** Error #11, Undeclared Identifier in Parser\n");
         exit(1);
       }
       else
@@ -982,34 +1034,34 @@ void factor(int lexLevel, int* tableIndexPointer, Symbol* symbolTable, FILE* ifp
         }
         else
         {
-          printf("Error 22, ) Missing in Parse.\n");
+          printf("*** Error #22, ) Missing in Parser\n");
           exit(1);
         }
       }
-      currentToken = nextToken(ifp);
+      currentToken = nextToken();
     }
     else if(currentToken == numbersym)
     {
       if(numberToken > 99999)
       {
-        printf("Error 25, Number is Greater than 99999 in Parse.\n");
+        printf("*** Error #25, Number is Greater than 99999 in Parser\n");
         exit(1);
         numberToken = 0;
       }
       addToOutput(1, 0, numberToken, instructions);
-      currentToken = nextToken(ifp);
+      currentToken = nextToken();
     }
     else if(currentToken == lparentsym)
     {
-      currentToken = nextToken(ifp);
-      expression(lexLevel, tableIndexPointer, ifp, instructions, symbolTable);
+      currentToken = nextToken();
+      expression(lexLevel, tableIndexPointer, instructions, symbolTable);
       if(currentToken == rparentsym)
       {
-        currentToken = nextToken(ifp);
+        currentToken = nextToken();
       }
       else
       {
-        printf("Error 22, ) Missing in Parse.\n");
+        printf("*** Error #22, ) Missing in Parser\n");
         exit(1);
       }
     }
@@ -1054,141 +1106,116 @@ int indexCheck(char* name, int* tableIndexPointer, Symbol* symbolTable, int lexL
   return iTemp;
 }
 
-void varCheck(int lexLevel, int* tableIndexPointer, int* dataIndexPointer, FILE* ifp, Symbol* symbolTable)
+void varCheck(int lexLevel, int* tableIndexPointer, int* dataIndexPointer, Symbol* symbolTable)
 {
   if(currentToken == identsym)
   {
     addToSymbolTable(2, tableIndexPointer, dataIndexPointer, lexLevel, symbolTable);
-    currentToken = nextToken(ifp);
+    currentToken = nextToken();
   }
   else
   {
-    printf("Error 4, Const, Var or Procedure Must be Followed by an Identifier in Parse.\n");
+    printf("*** Error #4, Const, Var or Procedure Must be Followed by an Identifier in Parser\n");
     exit(1);
   }
 }
 
-void constCheck(int lexLevel, int* tableIndexPointer, int* dataIndexPointer, FILE* ifp, Symbol* symbolTable)
+void constCheck(int lexLevel, int* tableIndexPointer, int* dataIndexPointer, Symbol* symbolTable)
 {
   if(currentToken == identsym)
   {
-    currentToken = nextToken(ifp);
+    currentToken = nextToken();
     if((currentToken == eqlsym) || (currentToken == becomessym))
     {
       if(currentToken == becomessym)
       {
-        printf("Error 1, = Instead of := in Parse.\n");
+        printf("*** Error #1, := Instead of = in Parser\n");
         exit(1);
       }
-      currentToken = nextToken(ifp);
+      currentToken = nextToken();
       if(currentToken == numbersym)
       {
-        addToSymbolTable(1,tableIndexPointer,dataIndexPointer, lexLevel, symbolTable);
-        currentToken = nextToken(ifp);
+        addToSymbolTable(1, tableIndexPointer, dataIndexPointer, lexLevel, symbolTable);
+        currentToken = nextToken();
       }
     }
   }
+}
+
+void printAssembly(Instruction* instructions)
+{
+  int i;
+
+  printf("Line  Op    L     M\n");
+  for(i = 0; i < numInstructions; i++)
+  {
+    printf("%-6d%-6s%-6d%-6d\n", i, instructions[i].opName, instructions[i].components[1], instructions[i].components[2]);
+  }
+  printf("\n");
 }
 
 // VIRTUAL MACHINE
 
-/*
-void printAssembly(Instruction* instructions)
+void assignOperations(Instruction *instructions)
 {
-  int i;
-  printf("OpCode  LexLvl  MVal\n");
-  for(i = 0; i < numInstructions; i++)
-  {
-    printf("%-3d%-3d%d\n", instructions[i].components[0], instructions[i].components[1], instructions[i].components[2]);
-  }
-}
-
-Instruction *groupAssembly(FILE *ifp)
-{
-  Instruction *input = malloc(sizeof(Instruction));
-  int inputSize = 0;
-
-  char buffer[1023];
-  char *word;
   int i = 0;
-
-  while (fscanf(ifp, "%s", buffer) != EOF)
+  while (i < numInstructions)
   {
-    word = malloc(sizeof(char) * (strlen(buffer) + 1));
-    strcpy(word, buffer);
-
-    // With every line, add an Instruction slot to the array
-    if (i % 3 == 0)
+    // Assign the opcode abbreviation to the Instruction for printings
+    switch(instructions[i].components[0])
     {
-      inputSize++;
-      input = realloc(input, sizeof(Instruction) * inputSize);
-
-      // Assign the opcode abbreviation to the Instruction for printings
-      switch(atoi(word))
-      {
-        case 1:
-          strcpy(input[inputSize - 1].opName, "LIT");
-          break;
-        case 2:
-          strcpy(input[inputSize - 1].opName, "OPR");
-          break;
-        case 3:
-          strcpy(input[inputSize - 1].opName, "LOD");
-          break;
-        case 4:
-          strcpy(input[inputSize - 1].opName, "STO");
-          break;
-        case 5:
-          strcpy(input[inputSize - 1].opName, "CAL");
-          break;
-        case 6:
-          strcpy(input[inputSize - 1].opName, "INC");
-          break;
-        case 7:
-          strcpy(input[inputSize - 1].opName, "JMP");
-          break;
-        case 8:
-          strcpy(input[inputSize - 1].opName, "JPC");
-          break;
-        case 9:
-        case 10:
-        case 11:
-          strcpy(input[inputSize - 1].opName, "SIO");
-          break;
-      }
+      case 1:
+        strcpy(instructions[i].opName, "LIT");
+        break;
+      case 2:
+        strcpy(instructions[i].opName, "OPR");
+        break;
+      case 3:
+        strcpy(instructions[i].opName, "LOD");
+        break;
+      case 4:
+        strcpy(instructions[i].opName, "STO");
+        break;
+      case 5:
+        strcpy(instructions[i].opName, "CAL");
+        break;
+      case 6:
+        strcpy(instructions[i].opName, "INC");
+        break;
+      case 7:
+        strcpy(instructions[i].opName, "JMP");
+        break;
+      case 8:
+        strcpy(instructions[i].opName, "JPC");
+        break;
+      case 9:
+      case 10:
+      case 11:
+        strcpy(instructions[i].opName, "SIO");
+        break;
     }
-
-    // Fill the Instruction's "component" arrays with the appropriate data
-    input[inputSize - 1].components[i % 3] = atoi(word);
     i++;
-
-    // Free the current scanned word to avoid a mem-leak
-    free(word);
-
-    // Exit the scanning loop if there are more lines of code than the maximum allowed limit
-    if (i == MAX_CODE_LENGTH * 3)
-      break;
   }
-
-  // Close the file to prevent problems
-  fclose(ifp);
-
-  return input;
 }
 
-void printStack(int *stack, int *sp, int *ar)
+void printStack(Instruction ir, int *stack, int *sp, int *ar, FILE *ofp, int flag)
 {
   int i, j = 0;
   for(i = MAX_DATA_STACK_HEIGHT; i > *sp; i--)
   {
-    printf("%d ", stack[i - 1]);
+    if (flag)
+      printf("%d ", stack[i - 1]);
+    fprintf(ofp, "%d ", stack[i - 1]);
     if (i - 1 == ar[j])
     {
-      printf("| ");
+      if (flag)
+        printf("| ");
+      fprintf(ofp, "| ");
       j++;
     }
   }
-  printf("\n");
+  if (ir.components[0] != 10)
+    fprintf(ofp, "\n");
 }
 
 int base(int level, int base, int *stack)
@@ -1344,19 +1371,19 @@ void execute(Instruction ir, int *pc, int *sp, int *bp, int *hFlag, int *stack, 
       *pc = ir.components[2];
       break;
     case 8: // JPC
+      //printf("sp: %d, bp: %d, pc: %d\n", stack[*sp], stack[*bp], stack[*pc]);
       if(stack[*sp] == 0)
         *pc = ir.components[2];
+      else
+        *pc += 1;
       *sp += 1;
       break;
     case 9: // SIO 1
-      printf("%d", stack[*sp]);
       *sp += 1;
       *pc += 1;
       break;
     case 10: // SIO 2
       *sp -= 1;
-      scanf("Input a number: %d", &input);
-      stack[*sp] = input;
       *pc += 1;
       break;
     case 11: // SIO 3
@@ -1366,34 +1393,86 @@ void execute(Instruction ir, int *pc, int *sp, int *bp, int *hFlag, int *stack, 
   }
 }
 
-void cycle(Instruction *input)
+void cycle(Instruction *input, int flag, FILE *ofp)
 {
   Instruction instructionRegister;
   int *stack = malloc(sizeof(int) * MAX_DATA_STACK_HEIGHT);
   int aRecords = 0, *activationRecords = malloc(sizeof(int));
-  int haltFlag = 1, aRFlag = 0;
+  int haltFlag = 1, aRFlag = 0, printFlag = 1;
+  int userInput;
 
   int pcPtr, spPtr, bpPtr, *programCounter = &pcPtr, *stackPointer = &spPtr, *basePointer = &bpPtr;
   *programCounter = 0;
   *stackPointer = MAX_DATA_STACK_HEIGHT;
   *basePointer = *stackPointer - 1;
 
-  printf("\n                    PC    BP    SP     Stack\n");
-  printf("Initial Values      0     999   1000\n");
+  if (flag)
+  {
+    printf("%-20sPC    BP    SP     Stack\n", "");
+    printf("Initial Values      0     999   1000\n");
+  }
+  fprintf(ofp, "%-20sPC    BP    SP     Stack\n", "");
+  fprintf(ofp, "Initial Values      0     999   1000\n");
+
   while(haltFlag == 1)
   {
     // Fetch cycle
     instructionRegister = fetch(input, programCounter);
-    printf("%-4d%s %-4d%-8d", *programCounter, instructionRegister.opName, instructionRegister.components[1], instructionRegister.components[2]);
+    if (instructionRegister.components[0] == 9)
+      fprintf(ofp, "%-39sTop of the Stack: %d\n", "", stack[*stackPointer]);
+
+    if (instructionRegister.components[0] == 9 && flag)
+      printf("%-39sTop of the Stack: %d\n", "", stack[*stackPointer]);
+    else if (instructionRegister.components[0] == 9 && !flag)
+      printf("Top of the Stack: %d\n", stack[*stackPointer]);
+
+    if (flag)
+      printf("%-4d%s %-4d%-8d", *programCounter, instructionRegister.opName, instructionRegister.components[1], instructionRegister.components[2]);
+    fprintf(ofp, "%-4d%s %-4d%-8d", *programCounter, instructionRegister.opName, instructionRegister.components[1], instructionRegister.components[2]);
+
 
     // Execute Cycle
     execute(instructionRegister, programCounter, stackPointer, basePointer, &haltFlag, stack, activationRecords, &aRecords, &aRFlag);
-    printf("%-6d%-6d%-6d ", *programCounter, *basePointer, *stackPointer);
+    if (flag)
+      printf("%-6d%-6d%-6d ", *programCounter, *basePointer, *stackPointer);
+    fprintf(ofp, "%-6d%-6d%-6d ", *programCounter, *basePointer, *stackPointer);
 
-    if (haltFlag == 1)
-      printStack(stack, stackPointer, activationRecords);
+    if (flag)
+    {
+      if (haltFlag == 1)
+      {
+        printStack(instructionRegister, stack, stackPointer, activationRecords, ofp, flag);
+        if (instructionRegister.components[0] == 10)
+        {
+          printf("Input a number: ");
+          scanf("%d", &userInput);
+          stack[*stackPointer] = userInput;
+          fprintf(ofp, "Input a number: %d\n", userInput);
+          printFlag = 0;
+        }
+      }
+      if (printFlag)
+      {
+        printf("\n");
+      }
+      else
+        printFlag = 1;
+    }
     else
-      printf("\n");
+    {
+      if (haltFlag == 1)
+      {
+        printStack(instructionRegister, stack, stackPointer, activationRecords, ofp, flag);
+      }
+      if (instructionRegister.components[0] == 10)
+      {
+        printf("Input a number: ");
+        scanf("%d", &userInput);
+        stack[*stackPointer] = userInput;
+        fprintf(ofp, "Input a number: %d\n", userInput);
+      }
+    }
+
 
     if (aRFlag == 1)
     {
@@ -1404,8 +1483,7 @@ void cycle(Instruction *input)
     }
     aRFlag = 0;
   }
+  fprintf(ofp, "\n");
 
-  free(input);
   free(activationRecords);
 }
-*/

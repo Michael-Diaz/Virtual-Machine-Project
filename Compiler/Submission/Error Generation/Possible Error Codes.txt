@@ -1,0 +1,25 @@
+ (In Parser)
+*** Error #1, := Instead of =
+*** Error #4, Const, Var or Procedure Must be Followed by an Identifier
+*** Error #5, ; or , Missing
+*** Error #9, . Expected
+*** Error #11, Undeclared Identifier
+*** Error #12, Assignment to Constant or Procedure is Not Allowed
+*** Error #13, Assignment Operator Expected
+*** Error #14, 'call' Must be Followed by an Identifier
+*** Error #15, Call of a Constant or Variable is Meaningless
+*** Error #16, 'then' Expected
+*** Error #17, ; or 'end' Expected
+*** Error #18, 'do' Expected
+*** Error #20, Relational Operator Expected
+*** Error #22, ) Missing
+*** Error #25, Number is Greater than 99999
+
+(In Lexicographical Analyzer)
+*** Error #26, Unrecognized Symbol
+*** Error #27, Invalid Identifier Name
+*** Error #28, Variable Name More than 11 Chars
+*** Error #29, : Without =
+
+(In Driver)
+*** Error #30, Unrecognized Flag

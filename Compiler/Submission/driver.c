@@ -40,7 +40,7 @@ typedef struct Namerecord
 typedef struct Symbol
 {
 	int kind; 		  // const = 1, var = 2, proc = 3
-	char name[12];	// name up to 11 chars
+	char name[12];
 	int val; 		    // number (ASCII value)
 	int level; 		  // L level
 	int addr; 		  // M address
@@ -51,7 +51,7 @@ static const int MAX_DATA_STACK_HEIGHT = 1000;
 static const int MAX_CODE_LENGTH = 500;
 static const int NON_VALUE = INT_MIN;
 
-static char name[12];
+static char name[11];
 static Namerecord *tokens;
 static int numInstructions = 0, currentToken, numberToken, kind, lexListIndex = 0, diff, prevdiff = 0;
 
@@ -62,7 +62,7 @@ void printLexemes(Namerecord *lexemes);
 void program(Symbol* symbolTable, Instruction* instructions, FILE *ofp);
 void addToOutput(int op, int l, int m, Instruction* instructions);
 int nextToken(void);
-void block(int tableIndex,int lexLevel, Symbol* symbolTable, Instruction* instructions);
+void block(int tableIndex, int lexLevel, Symbol* symbolTable, Instruction* instructions);
 void addToSymbolTable(int kind, int* tableIndexPointer, int* dataIndexPointer, int lexLevel, Symbol* table);
 void constCheck(int lexLevel, int* tableIndexPointer, int* dataIndexPointer, Symbol* symbolTable);
 void varCheck(int lexLevel, int* tableIndexPointer, int* dataIndexPointer, Symbol* symbolTable);
@@ -99,7 +99,7 @@ void main(int argc, char **argv)
     else if (argv[i][0] == '-')
     {
       printf("*** Error #30, Unrecognized Flag in Driver\n");
-      exit(0);
+      exit(1);
     }
   }
 
@@ -144,7 +144,7 @@ char *arrayConvert(FILE *ifp, FILE *ofp)
     if (errorSym == NULL && commmentFlag == 0)
     {
       printf("*** Error #26, Unrecognized Symbol in Lex.\n");
-      exit(0);
+      exit(1);
     }
 
     // Handles the beginning of comments
@@ -234,7 +234,7 @@ Namerecord *tokenize(char *inputCopy, FILE *ofp)
           lookForward = 0;
           errorCode = 1;
           printf("*** Error #28, Variable Name More than 11 Chars in Lex.\n");
-          exit(0);
+          exit(1);
         }
         stringIndex++;
         lexString[stringIndex] = inputCopy[i];
@@ -334,7 +334,7 @@ Namerecord *tokenize(char *inputCopy, FILE *ofp)
           errorCode = 3;
           lookForward = 0;
           printf("*** Error #25, This Number is Too Large in Parser\n");
-          exit(0);
+          exit(1);
         }
         numbersPlace++;
         temp = inputCopy[i] - '0';
@@ -346,7 +346,7 @@ Namerecord *tokenize(char *inputCopy, FILE *ofp)
       {
         printf("*** Error #27, Invalid Identifier Name in Lex.\n");
         errorCode = 2;
-        exit(0);
+        exit(1);
       }
 
       lexTokens[lexTokensIndex].tokens = numbersym;
@@ -559,35 +559,39 @@ void printLexemes(Namerecord *lexemes)
 
 // PARSER & ASSEMBLER
 
-void addToSymbolTable(int kind, int* tableIndexPointer, int* dataIndexPointer, int lexLevel, Symbol* symbolTable)
+void addToSymbolTable(int kind, int *tableIndexPointer, int *dataIndexPointer, int lexLevel, Symbol *symbolTable)
 {
   char* nameTemp;
   int i, strLength;
-  (*tableIndexPointer)++;
+  (*tableIndexPointer) += 1;
   nameTemp = name;
   strLength = strlen(name);
 
-  for(i = 0;i < strLength; i++)
+  for(i = 0; i < strLength; i++)
   {
     symbolTable[*tableIndexPointer].name[i] = *nameTemp;
     nameTemp++;
   }
 
   symbolTable[*tableIndexPointer].kind = kind;
-
   if(kind == 1)
   {
     symbolTable[*tableIndexPointer].val = numberToken;
+    symbolTable[*tableIndexPointer].level = -1;
+    symbolTable[*tableIndexPointer].addr = -1;
   }
   else if(kind == 2)
   {
+    symbolTable[*tableIndexPointer].val = 0;
     symbolTable[*tableIndexPointer].level = lexLevel;
     symbolTable[*tableIndexPointer].addr = *dataIndexPointer;
     (*dataIndexPointer)++;
   }
-  else
+  else if(kind == 3)
   {
+    symbolTable[*tableIndexPointer].val = 0;
     symbolTable[*tableIndexPointer].level = lexLevel;
+    symbolTable[*tableIndexPointer].addr = -2;
   }
 }
 
@@ -618,8 +622,9 @@ int nextToken(void)
 void program(Symbol *symbolTable, Instruction *instructions, FILE *ofp)
 {
   int i;
+  int init = 0;
   currentToken = nextToken();
-  block(0, 0, symbolTable, instructions);
+  block(init, init, symbolTable, instructions);
 
   if(currentToken != periodsym)
   {
@@ -637,13 +642,13 @@ void program(Symbol *symbolTable, Instruction *instructions, FILE *ofp)
   fprintf(ofp, "\n");
 }
 
-void block(int tableIndex,int lexLevel, Symbol* symbolTable, Instruction* instructions)
+void block(int tableIndex, int lexLevel, Symbol *symbolTable, Instruction *instructions)
 {
   int tableIndexTemp = tableIndex;
   int dataIndex = 4;
   int numInstructionsTemp;
   symbolTable[tableIndex].addr = numInstructions;
-  //addToOutput(7,0,0,instructions);
+  addToOutput(7, 0, 0, instructions);
 
   do
   {
@@ -697,6 +702,7 @@ void block(int tableIndex,int lexLevel, Symbol* symbolTable, Instruction* instru
       if(currentToken == identsym)
       {
         addToSymbolTable(3, &tableIndex, &dataIndex, lexLevel, symbolTable);
+        lexLevel++;
         currentToken = nextToken();
       }
       else
@@ -713,10 +719,11 @@ void block(int tableIndex,int lexLevel, Symbol* symbolTable, Instruction* instru
         printf("*** Error #5, ; or , Missing in Parser\n");
         exit(1);
       }
-      block(lexLevel+1, tableIndex, symbolTable, instructions);
+      block(tableIndex, lexLevel, symbolTable, instructions);
 
       if(currentToken == semicolonsym)
       {
+        lexLevel--;
         currentToken = nextToken();
       }
       else
@@ -740,7 +747,7 @@ void block(int tableIndex,int lexLevel, Symbol* symbolTable, Instruction* instru
 
 void statement(int lexLevel, int *tableIndexPointer, Instruction *instructions, Symbol *symbolTable)
 {
-  int i, numInstructionsTemp1, numInstructionsTemp2;
+  int i, numInstructionsTemp1, numInstructionsTemp2, lookaheadToken;
 
   if(currentToken == identsym)
   {
@@ -766,7 +773,7 @@ void statement(int lexLevel, int *tableIndexPointer, Instruction *instructions, 
     else
     {
       printf("*** Error #13, Assignment Operator Expected in Parser\n");
-      exit(0);
+      exit(1);
     }
 
     expression(lexLevel, tableIndexPointer, instructions, symbolTable);
@@ -821,17 +828,18 @@ void statement(int lexLevel, int *tableIndexPointer, Instruction *instructions, 
     numInstructionsTemp1 = numInstructions;
     addToOutput(8, 0, 0, instructions);
     statement(lexLevel, tableIndexPointer, instructions, symbolTable);
+    lookaheadToken = tokens[lexListIndex].tokens;
 
-    if(currentToken == elsesym)
+    if(lookaheadToken == elsesym)
     {
+      currentToken = nextToken();
       currentToken = nextToken();
       instructions[numInstructionsTemp1].components[2] = numInstructions + 1;
       numInstructionsTemp1 = numInstructions;
       addToOutput(7, 0, 0, instructions);
       statement(lexLevel, tableIndexPointer, instructions, symbolTable);
     }
-    instructions[numInstructionsTemp1].components[2] = numInstructions ;
-
+    instructions[numInstructionsTemp1].components[2] = numInstructions;
   }
   else if(currentToken == beginsym)
   {

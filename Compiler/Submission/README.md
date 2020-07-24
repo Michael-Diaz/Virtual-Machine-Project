@@ -2,10 +2,10 @@
 Project assignment for a Systems Software class (COP 3402) at the University of Central Florida; collaboration done w/ @Allen17202
 
 ## Usage
-1. Compile the program file using the syntax "gcc driver.c"
-    - Alternatively, use "gcc h4compiler.c -o <Custom Name>.<Extension Type>" to specify a name for the execuatble file
-2. To run the program, use the syntax "./<Executable Name>.<Extension Type>, followed by <Input File Name>.txt"
-    - If extra console output is desired, add the following flags after "<Input File Name>.txt"
+1. Compile the program file using the syntax "gcc h4compiler.c"
+    - Alternatively, use "gcc h4compiler.c -o \<Custom Name\>.\<Extension Type\>" to specify a name for the execuatble file
+2. To run the program, use the syntax "./\<Executable Name\>.\<Extension Type\>", followed by "\<Input File Name\>.txt" (If no custom name is used, Executable is named "a" and Extension type is "out"
+    - If extra console output is desired, add the following flags after "\<Input File Name\>.txt"
         - "-l" will display the Lexeme Table and Lexeme List
         - "-a" will display the Assembly Code
         - "-v" will display the Stack Manipulation

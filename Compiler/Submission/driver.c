@@ -1081,7 +1081,7 @@ int indexCheck(char* name, int* tableIndexPointer, Symbol* symbolTable, int lexL
   int i;
   i = *tableIndexPointer;
 
-  int iTemp;
+  int iTemp = 0;
   int diffCount = 0;
 
   while(i != 0)
